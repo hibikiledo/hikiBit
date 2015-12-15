@@ -26,7 +26,7 @@ import processing.serial.*;
 IPCapture cam;
 
 OpenCV opencv;
-PImage bw, h, firstColorSnapshot, secondColorSnapshot;
+PImage bw, h, g, firstColorSnapshot, secondColorSnapshot;
 Rectangle block;
 ArrayList<Contour> contoursColor1, contoursColor2;
 int ballCountColor1 = 0, ballCountColor2 = 0;
@@ -50,11 +50,11 @@ boolean sendingCommand = false; // A flag that determines whether the command sh
 
 void setup() {
   size(width, height);
-  cam = new IPCapture(this, "http://192.168.1.109:8080/video", "", ""); // Android's Ipwebcam
+  cam = new IPCapture(this, "http://172.29.50.50:8080/video", "", ""); // Android's Ipwebcam
   //cam = new IPCapture(this, "http://192.168.1.109/live", "", ""); // iOS's iPCamera (Doesn't work yet)
   cam.start();
 
-  port = new Serial(this, "/dev/cu.hikiBot-DevB", 115200);
+  //port = new Serial(this, "/dev/cu.hikiBot-DevB", 115200);
 
   // Initialize opencv here to avoid getting welcome messages
   opencv = new OpenCV(this, 640, 480);
@@ -79,9 +79,12 @@ void draw()
   {
     cam.read();    
     opencv.loadImage(cam);
-
     opencv.useColor(HSB);
     h = opencv.getSnapshot(opencv.getH());
+    
+    opencv.loadImage(cam);
+    opencv.useGray();
+    g = opencv.getSnapshot();
 
     opencv.useGray();
 
@@ -92,7 +95,7 @@ void draw()
     contoursColor1 = opencv.findContours();
 
     // color 2
-    opencv.loadImage(h);
+    opencv.loadImage(g);
     opencv.inRange(startColor2, endColor2);
     secondColorSnapshot = opencv.getSnapshot();
     contoursColor2 = opencv.findContours();
@@ -130,7 +133,7 @@ void draw()
       }
     }
 
-    /*
+    
     // draw rectangle for color 2 with green border
     for (Contour contour : contoursColor2) 
     {
@@ -150,7 +153,7 @@ void draw()
         ballCountColor2 += 1;
       }
     }    
-    */
+    
 
     // show report
     report();
