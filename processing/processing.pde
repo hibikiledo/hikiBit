@@ -29,6 +29,7 @@ OpenCV opencv;
 PImage bw, h, firstColorSnapshot, secondColorSnapshot;
 Rectangle block;
 ArrayList<Contour> contoursColor1, contoursColor2;
+int ballCountColor1 = 0, ballCountColor2 = 0;
 ArrayList<Contour> polygons;
 
 Serial port;
@@ -41,16 +42,20 @@ int startColor2 = 0, endColor2 = 1;
 // true : color 1, false : color 2
 boolean colorSwitch = true;
 
+// Window width and height
+final int width = 640 + 320;
+final int height = 480 + 90;
+
 boolean sendingCommand = false; // A flag that determines whether the command should be sent.
 
 void setup() {
-  size(640 * 2, 480);
+  size(width, height);
   cam = new IPCapture(this, "http://192.168.1.109:8080/video", "", ""); // Android's Ipwebcam
   //cam = new IPCapture(this, "http://192.168.1.109/live", "", ""); // iOS's iPCamera (Doesn't work yet)
   cam.start();
 
   port = new Serial(this, "/dev/cu.hikiBot-DevB", 115200);
-  
+
   // Initialize opencv here to avoid getting welcome messages
   opencv = new OpenCV(this, 640, 480);
 
@@ -66,7 +71,9 @@ void setup() {
 
 void draw() 
 {
-  int x=0, y=0, size=0, error=0, count=0, speed=0;
+  int x = 0, y = 0, size = 0, error = 0, count = 0, speed = 0;
+  ballCountColor1 = 0;
+  ballCountColor2 = 0;
 
   if (cam.isAvailable()) 
   {
@@ -98,9 +105,10 @@ void draw()
     image(firstColorSnapshot, 640, 0, 320, 240);
     image(secondColorSnapshot, 640, 240, 320, 240);
 
-    // Erode and dilate to eliminate small blob
+    // Erode and dilate to eliminate small blob    
     opencv.erode();
-    opencv.dilate();
+    opencv.dilate();   
+
 
     // draw rectangle for color 1 with red border
     for (Contour contour : contoursColor1) 
@@ -117,9 +125,12 @@ void draw()
         y = block.y + block.height/2;
         size = block.width;
         point(x, y);
+        // Increment counter
+        ballCountColor1 += 1;
       }
     }
-    
+
+    /*
     // draw rectangle for color 2 with green border
     for (Contour contour : contoursColor2) 
     {
@@ -135,31 +146,32 @@ void draw()
         y = block.y + block.height/2;
         size = block.width;
         point(x, y);
+        // Increment counter
+        ballCountColor2 += 1;
       }
-    }   
-    
-    /*
-    println("found " + contours.size() + " balls");
-    println("x = " + x + ", y = " + y +", size = " + size);
+    }    
     */
+
+    // show report
+    report();
   }
 
+  // communicate with arduino here
   if (sendingCommand) {
+    
+    // find error from center
+    error = 320 - x;
 
-    //communicate with arduino here
-    //we want to center the ball
-    error = 320-x;
-
-    if (error>5) { // Turn left
+    if (error > 5) { // Turn left
       port.write('j');
       delay(25);
       port.write('d');
-    } else if (error<-5) { // Turn right
+    } else if (error < -5) { // Turn right
       port.write('l');
       delay(25);
       port.write('d');
     } else { // Ball is centered
-      if (size<85) { // Move forward
+      if (size < 85) { // Move forward
         port.write('i');
         delay(500);
         port.write('d');
@@ -248,6 +260,34 @@ void keyPressed()
     println("Report colors start and end values");
     println("Color 1 # Start :" + startColor1, " End : " + endColor1);
     println("Color 2 # Start :" + startColor2, " End : " + endColor2);
+  }
+}
+
+void report() {
+  // clear report portion
+  fill(50, 50, 50);
+  noStroke();
+  rect(0, 480, width, height);
+
+  // customize style
+  fill(61, 197, 241);    
+  textSize(16);
+
+  text("# COLOR 1: " + ballCountColor1, 20, 500);
+  text("# COLOR 2: " + ballCountColor2, 20, 520);
+  text("Hue range of color 1: " + startColor1 + " - " + endColor1, 20, 540);
+  text("Hue range of color 2: " + startColor2 + " - " + endColor2, 20, 560);
+  
+  if (colorSwitch) {
+     text("Working on COLOR 1", 320, 500); 
+  } else {
+     text("Working on COLOR 2", 320, 500); 
+  }
+  
+  if (sendingCommand) {
+     text("Sending command switch ON", 320, 520); 
+  } else {
+     text("Sending command switch OFF", 320, 520); 
   }
 }
 
