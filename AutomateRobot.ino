@@ -10,6 +10,16 @@
 // Setup Pin 12 and 13 for Serial RX and TX
 SoftwareSerial BTSerial(12, 13); // RX, TX
 
+// Define directions
+#define LEFT 0
+#define CENTER 1
+#define RIGHT 2
+
+// Define forward or backward
+#define FORWARD 1
+#define REVERSE 2
+#define NONE 0
+
 // Define pin number for M1 = left
 #define M1_A    2
 #define M1_B    3
@@ -44,6 +54,10 @@ int speed_val = 200;
 // actual speed of M1 and M2
 int M1_speed = 0;
 int M2_speed = 0;
+
+// variable to store current state of motor
+int M1_state = NONE;
+int M2_state = NONE;
 
 int n = 0;
 
@@ -116,40 +130,61 @@ void test_speed() {
 /* CONTROLLING MOTORS */
 
 void M1_reverse(int x) {
+  M1_state = REVERSE;
   digitalWrite(M1_A, LOW);
   digitalWrite(M1_B, HIGH);
   analogWrite(M1_PWM, x );
 }
 
 void M1_forward(int x) {
+  M1_state = FORWARD;
   digitalWrite(M1_A, HIGH);
   digitalWrite(M1_B, LOW);
   analogWrite(M1_PWM, x );
 }
 
 void M1_stop() {
+  /*
+  if (M1_state == FORWARD) {
+    M1_reverse(200);
+  }
+  if (M1_state == REVERSE) {
+    M1_forward(200);
+  }
+  */
   digitalWrite(M1_B, LOW);
   digitalWrite(M1_A, LOW);
   digitalWrite(M1_PWM, LOW);
+  M1_state = NONE;
 }
 
 void M2_forward(int y) {
-
+  M2_state = FORWARD;
   digitalWrite(M2_A, HIGH);
   digitalWrite(M2_B, LOW);
   analogWrite(M2_PWM, y );
 }
 
 void M2_reverse(int y) {
+  M2_state = REVERSE;
   digitalWrite(M2_A, LOW);
   digitalWrite(M2_B, HIGH);
   analogWrite(M2_PWM, y);
 }
 
 void M2_stop() {
+  /*
+  if (M2_state == FORWARD) {
+    M2_reverse(200);
+  }
+  if (M2_state == REVERSE) {
+    M2_forward(200);
+  }
+  */
   digitalWrite(M2_B, LOW);
   digitalWrite(M2_A, LOW);
   digitalWrite(M2_PWM, LOW);
+  M2_state = NONE;
 }
 
 /*  MOB CONTROL */
@@ -229,44 +264,64 @@ void manual() {
 /* LINE TRACKING */
 void track_line_to_base() {
 
-  boolean onTrack = true;
+  boolean endOfTrack = false;
   int lossCounter = 0;
 
   int forwardSpeed = 150;
   int reverseSpeed = 150;
 
+  int previousState = 0;
+
   // if byte is equals to 48 or '0', track line to the end
   if (incomingByte == 48) {
 
-    while (onTrack) {
+    while (!endOfTrack) {
 
       int L = digitalRead(OPTO_L);
       int R = digitalRead(OPTO_R);
       int C = digitalRead(OPTO_C);
 
       if (L == LOW) {  // Turn right
+        previousState = LEFT;
         M1_forward(forwardSpeed);
         M2_reverse(reverseSpeed);
         lossCounter = 0;
       }
       else if (R == LOW) {  // Turn left
+        previousState = RIGHT;
         M1_reverse(reverseSpeed);
         M2_forward(forwardSpeed);
         lossCounter = 0;
       }
       else if (C == LOW) {  // Forward
+        previousState = CENTER;
         M1_forward(forwardSpeed);
         M2_forward(forwardSpeed);
         lossCounter = 0;
       }
-      // we detect nothing here
+      // we detect nothing here .. try to get back to track
       else if (L == HIGH && R == HIGH && C == HIGH) {
         lossCounter += 1;
+        if (previousState == LEFT) {
+          M1_forward(forwardSpeed);
+          M2_reverse(reverseSpeed);
+        }
+        else if (previousState == RIGHT) {
+          M1_reverse(reverseSpeed);
+          M2_forward(forwardSpeed);
+        }
+        else if (previousState == CENTER) {
+          M1_forward(forwardSpeed);
+          M2_reverse(reverseSpeed);
+        }
       }
-      if (lossCounter == 15000) {
-        onTrack = false;
+      
+      if (lossCounter == 10000) {
+        endOfTrack = true;
       }
+      
     }
+
     M1_stop();
     M2_stop();
 
