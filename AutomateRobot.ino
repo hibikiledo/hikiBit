@@ -45,6 +45,8 @@ SoftwareSerial BTSerial(12, 13); // RX, TX
 #define ECHO_PIN      9  // Arduino pin tied to echo pin on the ultrasonic sensor.
 #define MAX_DISTANCE  100 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
+#define FAST_STOP_DELAY 10
+
 // variable to store serial data
 int incomingByte = 0;
 
@@ -105,8 +107,7 @@ void loop() {
 
     // read the incoming byte:
     incomingByte = BTSerial.read();
-
-    // say what you got:
+    
     //Serial.print("I received: ");
     //Serial.println((char) incomingByte);
     // delay 10 milliseconds to allow serial update time
@@ -118,79 +119,6 @@ void loop() {
     release_ball_task();
 
   }
-}
-
-/* CONTROLLING MOTORS */
-
-void M1_reverse(int x) {
-  M1_state = REVERSE;
-  digitalWrite(M1_A, LOW);
-  digitalWrite(M1_B, HIGH);
-  analogWrite(M1_PWM, x );
-}
-
-void M1_forward(int x) {
-  M1_state = FORWARD;
-  digitalWrite(M1_A, HIGH);
-  digitalWrite(M1_B, LOW);
-  analogWrite(M1_PWM, x );
-}
-
-void M1_stop() {
-  if (M1_state == FORWARD) {
-    M1_reverse(speed_val_left);
-  } else if (M1_state == REVERSE) {
-    M1_forward(speed_val_left);
-  }
-  delay(50);
-  digitalWrite(M1_B, LOW);
-  digitalWrite(M1_A, LOW);
-  digitalWrite(M1_PWM, LOW);
-  M1_state = NONE;
-}
-
-void M2_forward(int y) {
-  M2_state = FORWARD;
-  digitalWrite(M2_A, HIGH);
-  digitalWrite(M2_B, LOW);
-  analogWrite(M2_PWM, y );
-}
-
-void M2_reverse(int y) {
-  M2_state = REVERSE;
-  digitalWrite(M2_A, LOW);
-  digitalWrite(M2_B, HIGH);
-  analogWrite(M2_PWM, y);
-}
-
-void M2_stop() {
-  if (M2_state == FORWARD) {
-    M2_reverse(speed_val_right);
-  } else if (M2_state == REVERSE) {
-    M2_forward(speed_val_right);
-  }
-  delay(50);
-  digitalWrite(M2_B, LOW);
-  digitalWrite(M2_A, LOW);
-  digitalWrite(M2_PWM, LOW);
-  M2_state = NONE;
-}
-
-/*  MOB CONTROL */
-void MOB_forward() {
-  digitalWrite(MOB_A, LOW);
-  digitalWrite(MOB_B, HIGH);
-  analogWrite(MOB_PWM, 200);
-}
-
-void MOB_reverse() {
-  digitalWrite(MOB_A, HIGH);
-  digitalWrite(MOB_B, LOW);
-  analogWrite(MOB_PWM, 200);
-}
-
-void MOB_stop() {
-  analogWrite(MOB_PWM, 0);
 }
 
 /* MANUAL CONTROL */
@@ -333,6 +261,77 @@ void track_line_from_start_to_base_task() {
     // Tell processing that line tracking is done :)
     BTSerial.write((char) '0');
   }
+}
 
+/* CONTROLLING MOTORS */
+void M1_reverse(int x) {
+  M1_state = REVERSE;
+  digitalWrite(M1_A, LOW);
+  digitalWrite(M1_B, HIGH);
+  analogWrite(M1_PWM, x );
+}
+
+void M1_forward(int x) {
+  M1_state = FORWARD;
+  digitalWrite(M1_A, HIGH);
+  digitalWrite(M1_B, LOW);
+  analogWrite(M1_PWM, x );
+}
+
+void M1_stop() {
+  if (M1_state == FORWARD) {
+    M1_reverse(speed_val_left);
+  } else if (M1_state == REVERSE) {
+    M1_forward(speed_val_left);
+  }
+  delay(FAST_STOP_DELAY);
+  digitalWrite(M1_B, LOW);
+  digitalWrite(M1_A, LOW);
+  digitalWrite(M1_PWM, LOW);
+  M1_state = NONE;
+}
+
+void M2_forward(int y) {
+  M2_state = FORWARD;
+  digitalWrite(M2_A, HIGH);
+  digitalWrite(M2_B, LOW);
+  analogWrite(M2_PWM, y );
+}
+
+void M2_reverse(int y) {
+  M2_state = REVERSE;
+  digitalWrite(M2_A, LOW);
+  digitalWrite(M2_B, HIGH);
+  analogWrite(M2_PWM, y);
+}
+
+void M2_stop() {
+  if (M2_state == FORWARD) {
+    M2_reverse(speed_val_right);
+  } else if (M2_state == REVERSE) {
+    M2_forward(speed_val_right);
+  }
+  delay(FAST_STOP_DELAY);
+  digitalWrite(M2_B, LOW);
+  digitalWrite(M2_A, LOW);
+  digitalWrite(M2_PWM, LOW);
+  M2_state = NONE;
+}
+
+/*  MOB CONTROL */
+void MOB_forward() {
+  digitalWrite(MOB_A, LOW);
+  digitalWrite(MOB_B, HIGH);
+  analogWrite(MOB_PWM, 200);
+}
+
+void MOB_reverse() {
+  digitalWrite(MOB_A, HIGH);
+  digitalWrite(MOB_B, LOW);
+  analogWrite(MOB_PWM, 200);
+}
+
+void MOB_stop() {
+  analogWrite(MOB_PWM, 0);
 }
 
