@@ -11,24 +11,24 @@
 SoftwareSerial BTSerial(12, 13); // RX, TX
 
 // Define directions
-#define LEFT 0
-#define CENTER 1
-#define RIGHT 2
+#define LEFT    0
+#define CENTER  1
+#define RIGHT   2
 
 // Define forward or backward
-#define FORWARD 1
-#define REVERSE 2
-#define NONE 0
+#define FORWARD   1
+#define REVERSE   2
+#define NONE      0
 
 // Define pin number for M1 = left
-#define M1_A    2
-#define M1_B    3
-#define M1_PWM  11
+#define M1_A    4
+#define M1_B    5
+#define M1_PWM  10
 
 // Define pin number for M2 = right
-#define M2_A    4
-#define M2_B    5
-#define M2_PWM  10
+#define M2_A    2
+#define M2_B    3
+#define M2_PWM  11
 
 // Define pin number for mob motor control
 #define MOB_A 0
@@ -48,9 +48,6 @@ SoftwareSerial BTSerial(12, 13); // RX, TX
 // variable to store serial data
 int incomingByte = 0;
 
-// variable to store speed value
-int speed_val = 200;
-
 // actual speed of M1 and M2
 int M1_speed = 0;
 int M2_speed = 0;
@@ -58,6 +55,16 @@ int M2_speed = 0;
 // variable to store current state of motor
 int M1_state = NONE;
 int M2_state = NONE;
+
+// [CONFIG] variable to store speed value for MANUAL control
+int speed_val_left = 200;
+int speed_val_right = 250;
+
+// [CONFIG] variable to setup the speed for tracking
+const int forwardSpeedLeft = 150;
+const int forwardSpeedRight = 200;
+const int reverseSpeedLeft = 150;
+const int reverseSpeedRight = 200;
 
 int n = 0;
 
@@ -88,9 +95,6 @@ void setup() {
   pinMode(7, INPUT);
   pinMode(8, INPUT);
 
-  // initialize initial states for output pins
-
-
 }
 
 // the loop function runs over and over again forever
@@ -110,20 +114,9 @@ void loop() {
 
     // handle command received from the serial
     manual();
-    track_line_to_base();
+    track_line_from_start_to_base_task();
+    release_ball_task();
 
-  }
-}
-
-/* Constrain speed value to between 0-255 */
-void test_speed() {
-  if (speed_val > 255) {
-    speed_val = 255;
-    //Serial.println(" MAX ");
-  }
-  if (speed_val < 0) {
-    speed_val = 0;
-    //Serial.println(" MIN ");
   }
 }
 
@@ -144,14 +137,12 @@ void M1_forward(int x) {
 }
 
 void M1_stop() {
-  /*
   if (M1_state == FORWARD) {
-    M1_reverse(200);
+    M1_reverse(speed_val_left);
+  } else if (M1_state == REVERSE) {
+    M1_forward(speed_val_left);
   }
-  if (M1_state == REVERSE) {
-    M1_forward(200);
-  }
-  */
+  delay(50);
   digitalWrite(M1_B, LOW);
   digitalWrite(M1_A, LOW);
   digitalWrite(M1_PWM, LOW);
@@ -173,14 +164,12 @@ void M2_reverse(int y) {
 }
 
 void M2_stop() {
-  /*
   if (M2_state == FORWARD) {
-    M2_reverse(200);
+    M2_reverse(speed_val_right);
+  } else if (M2_state == REVERSE) {
+    M2_forward(speed_val_right);
   }
-  if (M2_state == REVERSE) {
-    M2_forward(200);
-  }
-  */
+  delay(50);
   digitalWrite(M2_B, LOW);
   digitalWrite(M2_A, LOW);
   digitalWrite(M2_PWM, LOW);
@@ -189,14 +178,14 @@ void M2_stop() {
 
 /*  MOB CONTROL */
 void MOB_forward() {
-  digitalWrite(MOB_A, HIGH);
-  digitalWrite(MOB_B, LOW);
+  digitalWrite(MOB_A, LOW);
+  digitalWrite(MOB_B, HIGH);
   analogWrite(MOB_PWM, 200);
 }
 
 void MOB_reverse() {
-  digitalWrite(MOB_A, LOW);
-  digitalWrite(MOB_B, HIGH);
+  digitalWrite(MOB_A, HIGH);
+  digitalWrite(MOB_B, LOW);
   analogWrite(MOB_PWM, 200);
 }
 
@@ -206,44 +195,25 @@ void MOB_stop() {
 
 /* MANUAL CONTROL */
 void manual() {
-  // check incoming byte for direction
-  // if byte is equal to "46" or "." - raise speed
-  if (incomingByte == 46) {
-    speed_val = speed_val + 5;
-    test_speed();
-    //Serial.println(speed_val);
-  }
-  // if byte is equal to "44" or "," - lower speed
-  else if (incomingByte == 44) {
-    speed_val = speed_val - 5;
-    test_speed();
-    //Serial.println(speed_val);
-  }
-  // if byte is equal to "47" or "/" - max speed
-  else if (incomingByte == 47) {
-    speed_val = 255;
-    //Serial.println(" MAX ");
-  }
-
   // if byte is equal to "105" or "i", go forward
-  else if (incomingByte == 105) {
-    M1_forward(speed_val);
-    M2_forward(speed_val);
+  if (incomingByte == 105) {
+    M1_forward(speed_val_left);
+    M2_forward(speed_val_right);
   }
   // if byte is equal to "106" or "j", go left
   else if (incomingByte == 106) {
-    M1_forward(speed_val);
-    M2_reverse(speed_val);
+    M1_reverse(speed_val_left);
+    M2_forward(speed_val_right);
   }
   // if byte is equal to "108" or "l", go right
   else if (incomingByte == 108) {
-    M1_reverse(speed_val);
-    M2_forward(speed_val);
+    M1_forward(speed_val_left);
+    M2_reverse(speed_val_right);
   }
   // if byte is equal to "107" or "k", go reverse
   else if (incomingByte == 107) {
-    M1_reverse(speed_val);
-    M2_reverse(speed_val);
+    M1_reverse(speed_val_left);
+    M2_reverse(speed_val_right);
   }
   // if byte is equal to "100" or "d", stop
   else if (incomingByte == 100) {
@@ -261,19 +231,40 @@ void manual() {
   }
 }
 
+/* RELEASE BALL */
+void release_ball_task() {
+
+  if (incomingByte == '1') {
+
+    // reverse direction of mob
+    MOB_reverse();
+
+    // move back a little
+    M1_reverse(100);
+    M2_reverse(100);
+
+    delay(1000);
+
+    M1_stop();
+    M2_stop();
+    MOB_stop();
+
+    // Tell processing that release ball task is done :)
+    BTSerial.write((char) '1');
+
+  }
+
+}
+
 /* LINE TRACKING */
-void track_line_to_base() {
+void track_line_from_start_to_base_task() {
 
   boolean endOfTrack = false;
   int lossCounter = 0;
-
-  int forwardSpeed = 150;
-  int reverseSpeed = 150;
-
   int previousState = 0;
 
   // if byte is equals to 48 or '0', track line to the end
-  if (incomingByte == 48) {
+  if (incomingByte == '0') {
 
     while (!endOfTrack) {
 
@@ -283,43 +274,43 @@ void track_line_to_base() {
 
       if (L == LOW) {  // Turn right
         previousState = LEFT;
-        M1_forward(forwardSpeed);
-        M2_reverse(reverseSpeed);
+        M1_reverse(forwardSpeedLeft);
+        M2_forward(reverseSpeedRight);
         lossCounter = 0;
       }
       else if (R == LOW) {  // Turn left
         previousState = RIGHT;
-        M1_reverse(reverseSpeed);
-        M2_forward(forwardSpeed);
+        M1_forward(reverseSpeedLeft);
+        M2_reverse(forwardSpeedRight);
         lossCounter = 0;
       }
       else if (C == LOW) {  // Forward
         previousState = CENTER;
-        M1_forward(forwardSpeed);
-        M2_forward(forwardSpeed);
+        M1_forward(forwardSpeedLeft);
+        M2_forward(forwardSpeedRight);
         lossCounter = 0;
       }
       // we detect nothing here .. try to get back to track
       else if (L == HIGH && R == HIGH && C == HIGH) {
         lossCounter += 1;
         if (previousState == LEFT) {
-          M1_forward(forwardSpeed);
-          M2_reverse(reverseSpeed);
+          M1_reverse(forwardSpeedLeft);
+          M2_forward(reverseSpeedRight);
         }
         else if (previousState == RIGHT) {
-          M1_reverse(reverseSpeed);
-          M2_forward(forwardSpeed);
+          M1_forward(reverseSpeedLeft);
+          M2_reverse(forwardSpeedRight);
         }
         else if (previousState == CENTER) {
-          M1_forward(forwardSpeed);
-          M2_reverse(reverseSpeed);
+          M1_forward(forwardSpeedLeft);
+          M2_reverse(reverseSpeedRight);
         }
       }
-      
+
       if (lossCounter == 10000) {
         endOfTrack = true;
       }
-      
+
     }
 
     M1_stop();
@@ -328,7 +319,6 @@ void track_line_to_base() {
     // Tell processing that line tracking is done :)
     BTSerial.write((char) '0');
   }
-
 
 }
 
