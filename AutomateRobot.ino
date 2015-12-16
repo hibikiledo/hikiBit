@@ -50,16 +50,20 @@ void setup() {
   BTSerial.begin(115200);
   BTSerial.println("Robot program started");
 
+  Serial.begin(9600);
+  Serial.println("Report Serial");
+
   // initialize digital pin 2-5 as output for wheel control
   pinMode(2, OUTPUT);
   pinMode(3, OUTPUT);
   pinMode(4, OUTPUT);
   pinMode(5, OUTPUT);
-  
+
   // initialize digital pin 6-8 as output for wheel control
   pinMode(6, INPUT);
   pinMode(7, INPUT);
   pinMode(8, INPUT);
+
 }
 
 // the loop function runs over and over again forever
@@ -67,7 +71,7 @@ void loop() {
 
   // check for serial data
   if (BTSerial.available() > 0) {
-  
+
     // read the incoming byte:
     incomingByte = BTSerial.read();
 
@@ -79,13 +83,13 @@ void loop() {
 
     // handle command received from the serial
     manual();
-    track_line(5);
-    
+    track_line_to_end();
+
   }
 }
 
 /* Constrain speed value to between 0-255 */
-void test_speed() {  
+void test_speed() {
   if (speed_val > 255) {
     speed_val = 255;
     BTSerial.println(" MAX ");
@@ -138,71 +142,94 @@ void M2_stop() {
 /* MANUAL CONTROL */
 void manual() {
   // check incoming byte for direction
-    // if byte is equal to "46" or "." - raise speed
-    if (incomingByte == 46) {
-      speed_val = speed_val + 5;
-      test_speed();
-      BTSerial.println(speed_val);
-    }
-    // if byte is equal to "44" or "," - lower speed
-    else if (incomingByte == 44) {
-      speed_val = speed_val - 5;
-      test_speed();
-      BTSerial.println(speed_val);
-    }
-    // if byte is equal to "47" or "/" - max speed
-    else if (incomingByte == 47) {
-      speed_val = 255;
-      BTSerial.println(" MAX ");
-    }
-  
-    // if byte is equal to "105" or "i", go forward
-    else if (incomingByte == 105) {
-      M1_forward(speed_val);
-      M2_forward(speed_val);
-    }
-    // if byte is equal to "106" or "j", go left
-    else if (incomingByte == 106) {
-      M1_reverse(speed_val);
-      M2_forward(speed_val);
-    }
-    // if byte is equal to "108" or "l", go right
-    else if (incomingByte == 108) {
-      M1_forward(speed_val);
-      M2_reverse(speed_val);
-    }
-    // if byte is equal to "107" or "k", go reverse
-    else if (incomingByte == 107) {
-      M1_reverse(speed_val);
-      M2_reverse(speed_val);
-    }
-    // if byte is equal to "100" or "d", stop
-    else if (incomingByte == 100) {
-      M1_stop();
-      M2_stop();
-    }
+  // if byte is equal to "46" or "." - raise speed
+  if (incomingByte == 46) {
+    speed_val = speed_val + 5;
+    test_speed();
+    BTSerial.println(speed_val);
+  }
+  // if byte is equal to "44" or "," - lower speed
+  else if (incomingByte == 44) {
+    speed_val = speed_val - 5;
+    test_speed();
+    BTSerial.println(speed_val);
+  }
+  // if byte is equal to "47" or "/" - max speed
+  else if (incomingByte == 47) {
+    speed_val = 255;
+    BTSerial.println(" MAX ");
+  }
+
+  // if byte is equal to "105" or "i", go forward
+  else if (incomingByte == 105) {
+    M1_forward(speed_val);
+    M2_forward(speed_val);
+  }
+  // if byte is equal to "106" or "j", go left
+  else if (incomingByte == 106) {
+    M1_forward(speed_val);
+    M2_reverse(speed_val);
+  }
+  // if byte is equal to "108" or "l", go right
+  else if (incomingByte == 108) {
+    M1_reverse(speed_val);
+    M2_forward(speed_val);
+  }
+  // if byte is equal to "107" or "k", go reverse
+  else if (incomingByte == 107) {
+    M1_reverse(speed_val);
+    M2_reverse(speed_val);
+  }
+  // if byte is equal to "100" or "d", stop
+  else if (incomingByte == 100) {
+    M1_stop();
+    M2_stop();
+  }
 }
 
 /* LINE TRACKING */
-void track_line(int seconds) {
-  if (incomingByte == 116) {
-    for(n = 0; n < seconds * 1000; n++) {  // Track line for seconds
-      if (digitalRead(OPTO_L) == HIGH) {  // Turn right
-        M1_forward(speed_val);
-        M2_reverse(speed_val);
+void track_line_to_end() {
+
+  boolean onTrack = true;
+  int lossCounter = 0;
+
+  int forwardSpeed = 150;
+  int reverseSpeed = 150;
+
+  // if byte is equals to 48 or '0', track line to the end
+  if (incomingByte == 48) {
+
+    while (onTrack) {
+
+      int L = digitalRead(OPTO_L);
+      int R = digitalRead(OPTO_R);
+      int C = digitalRead(OPTO_C);
+
+      if (L == LOW) {  // Turn right
+        M1_forward(forwardSpeed);
+        M2_reverse(reverseSpeed);
+        lossCounter = 0;
       }
-      else if (digitalRead(OPTO_R) == HIGH) {  // Turn left
-        M1_reverse(speed_val);
-        M2_forward(speed_val);
+      else if (R == LOW) {  // Turn left
+        M1_reverse(reverseSpeed);
+        M2_forward(forwardSpeed);
+        lossCounter = 0;
       }
-      else if (digitalRead(OPTO_C) == HIGH) {  // Forward
-        M1_forward(speed_val);
-        M2_forward(speed_val);
+      else if (C == LOW) {  // Forward
+        M1_forward(forwardSpeed);
+        M2_forward(forwardSpeed);
+        lossCounter = 0;
       }
-      delay(1);
-    }
+      // we detect nothing here
+      else if (L == HIGH && R == HIGH && C == HIGH) {
+        lossCounter += 1;
+      }
+      if (lossCounter == 10000) {
+        onTrack = false;
+      }
+    }    
     M1_stop();
-    M2_stop();   
+    M2_stop();
   }
 }
 
