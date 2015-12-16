@@ -6,6 +6,8 @@
  *   - Realtime hue value adjustment.
  *   - Support 2 colours
  *   - No more annoying welcome messages in console
+ *   - Non-blocking delay for sending commands in ball tracking mode
+ *   - Implement simple state machine
  *
  * Customization
  *   - Change CONTOUR_AREA to the right values for filtering out small objects.
@@ -35,7 +37,7 @@ int ballCountColor1 = 0, ballCountColor2 = 0;
 
 Serial port;
 
-final int CONTOUR_AREA = 5000;
+final int CONTOUR_AREA = 1000;
 
 // Variables for performing inRange(start, end) on the image to find balls
 int startColor1 = 0, endColor1 = 1;
@@ -62,12 +64,14 @@ final char[] states = new char[] {
 };
 
 int currentStateIndex = 0;
+double globalCounter = 0;
 
 boolean sendingCommand = false; // A flag that determines whether the command should be sent.
+boolean directCommandSwitch = false; // A flag that determines if keypress should be sent directly without processing
 
 void setup() {
   size(width, height);
-  cam = new IPCapture(this, "http://172.29.50.50:8080/video", "", ""); // Android's Ipwebcam
+  cam = new IPCapture(this, "http://192.168.43.1:8080/video", "", ""); // Android's Ipwebcam
   //cam = new IPCapture(this, "http://192.168.1.109/live", "", ""); // iOS's iPCamera (Doesn't work yet)
   cam.start();
 
@@ -86,7 +90,7 @@ void setup() {
   // url, username and password.
 
   // Add preload task (state) in the queue
-  preCommandQueue.add(FULL_TRACK);
+  // preCommandQueue.add(FULL_TRACK);
 }
 
 void draw() 
@@ -134,6 +138,25 @@ void draw()
     opencv.erode();
     opencv.dilate();
 
+    // draw rectangle for color 2 with green border
+    for (Contour contour : contoursColor2) 
+    {
+      stroke(0, 255, 0);
+      noFill();
+      if (contour.area() > CONTOUR_AREA) // Look for large object
+      {
+        // Draw rectangular block over the ball 
+        block = contour.getBoundingBox();
+        rect(block.x, block.y, block.width, block.height);    
+        // Note the center of the block is (block.x+block.width/2, block.y+block.height/2)
+        x = block.x + block.width/2;
+        y = block.y + block.height/2;
+        size = block.width;
+        point(x, y);
+        // Increment counter
+        ballCountColor2 += 1;
+      }
+    }
 
     // draw rectangle for color 1 with red border
     for (Contour contour : contoursColor1) 
@@ -155,27 +178,6 @@ void draw()
       }
     }
 
-
-    // draw rectangle for color 2 with green border
-    for (Contour contour : contoursColor2) 
-    {
-      stroke(0, 255, 0);
-      noFill();
-      if (contour.area() > CONTOUR_AREA) // Look for large object
-      {
-        // Draw rectangular block over the ball 
-        block = contour.getBoundingBox();
-        rect(block.x, block.y, block.width, block.height);    
-        // Note the center of the block is (block.x+block.width/2, block.y+block.height/2)
-        x = block.x + block.width/2;
-        y = block.y + block.height/2;
-        size = block.width;
-        point(x, y);
-        // Increment counter
-        ballCountColor2 += 1;
-      }
-    }   
-
     report();
   } // end camera available  
 
@@ -185,116 +187,153 @@ void draw()
    */
   if (sendingCommand) {
 
-    // There are precommands .. process this first
+    // handle preCommand first
     if (preCommandQueue.size() > 0) {
-
-      println("Processing pre-command");
-
       Character command = preCommandQueue.remove(0);
       port.write(command);
-    } else { // No precommands .. work in states
+    } 
+    // pre command has been handled, process other commands as normal
+    else {
 
       if (states[currentStateIndex] == COLLECT_BALL) {
-        // find error from center
-        error = 320 - x;
-        if (error > 5) { // Turn left
-          port.write('j');
-          delay(25);
-          port.write('d');
-        } else if (error < -5) { // Turn right
-          port.write('l');
-          delay(25);
-          port.write('d');
-        } else { // Ball is centered
-          if (size < 85) { // Move forward
-            port.write('i');
-            delay(500);
-            port.write('d');
+        /* Collect balls */
+        // I use globalCounter instead of calling to delay() to keep video smooth
+        if ((int) globalCounter % 20 == 0) {
+
+          // find error from center ( 320 comes from 640/2 or width of image / 2 )
+          error = 320 - x;
+          println("error : " + error);
+
+          // Turn the robot according to the error
+          if (error > 80) { // Turn left
+            println("turning left");
+            port.write('9');
+          } else if (error < -80) { // Turn right
+            println("turning right");
+            port.write('8');
+          } else { // Ball is centered
+            if (size < 85) { // Move forward
+              println("Size < 85 .. moving forward");
+              port.write('i');
+              delay(500);
+              port.write('d');
+            }
           }
         }
-        delay(25);
       }
-    }
+    }// end Collect balls
+
+    delay(1);
+
+    // Uncomment line below for debugging
+    //sendingCommand = false;
   } // end sendingCommand
-} //end draw();
 
+  globalCounter += 1;
+} // end draw
 
-/*
+/**
  * Handle keyboard pressed
  */
 void keyPressed() 
 {
+
+  /* Global level command */
   if (key == ' ') 
   {
     if (cam.isAlive()) cam.stop();
     else cam.start();
   }
-
-  if (key == 's') {
-    if (sendingCommand) {
-      println("Stop sending commands");
-      sendingCommand = false;
-    } else {
-      println("Start sending commands");
-      sendingCommand = true;
-    }
+  if (key == 'q') {
+    directCommandSwitch = !directCommandSwitch;
   }
 
-  /** 
-   * Keys for adjusting start and end values for inRange().
-   * o : decrement start value by 1
-   * p : increment start value by 1
-   * [ : decrement end value by 1
-   * ] : increment end value by 1
-   * c : toggle between colors (Toggle colorSwitch)
-   *
-   * r : Report values of both colors
-   */
-  if (key == 'o') {
-    if (colorSwitch) {
-      startColor1 -= 1;
-    } else {
-      startColor2 -= 1;
+  /* Handle command differently according to the directCommandSwitch */
+  if (directCommandSwitch) { // Command switch enabled, send key directly to arduino
+    println("Sending " + key + " Via direct command channel ");
+    port.write(key);
+  } else { // Command switch disabled, interpret normally
+
+    if (key == 's') {
+      if (sendingCommand) {
+        println("Stop sending commands");
+        sendingCommand = false;
+      } else {
+        println("Start sending commands");
+        sendingCommand = true;
+      }
     }
-  }
-  if (key == 'p') {
-    if (colorSwitch) {
-      startColor1 += 1;
-    } else {
-      startColor2 += 1;
+
+    /** 
+     * Keys for adjusting start and end values for inRange().
+     * o : decrement start value by 1
+     * p : increment start value by 1
+     * [ : decrement end value by 1
+     * ] : increment end value by 1
+     * c : toggle between colors (Toggle colorSwitch)
+     *
+     * r : Report values of both colors
+     */
+    if (key == 'o') {
+      if (colorSwitch) {
+        startColor1 -= 1;
+      } else {
+        startColor2 -= 1;
+      }
     }
-  }
-  if (key == '[') {
-    if (colorSwitch) {
-      endColor1 -= 1;
-    } else {
-      endColor2 -= 1;
+    if (key == 'p') {
+      if (colorSwitch) {
+        startColor1 += 1;
+      } else {
+        startColor2 += 1;
+      }
     }
-  }
-  if (key == ']') {
-    if (colorSwitch) {
-      endColor1 += 1;
-    } else {
-      endColor2 += 1;
+    if (key == '[') {
+      if (colorSwitch) {
+        endColor1 -= 1;
+      } else {
+        endColor2 -= 1;
+      }
     }
-  }
-  if (key == 'c') {
-    colorSwitch = !colorSwitch;
+    if (key == ']') {
+      if (colorSwitch) {
+        endColor1 += 1;
+      } else {
+        endColor2 += 1;
+      }
+    }
+    if (key == 'c') {
+      colorSwitch = !colorSwitch;
+    }
+    
+    /**
+     * Keys for switching between states
+     * ',' (<) : go to previous state
+     * '.' (>) : go to next state
+     */
+     if (key == ',') {
+        currentStateIndex = prevStateIndexFrom(states[currentStateIndex]); 
+     }
+     if (key == '.') {
+        currentStateIndex = nextStateIndexFrom(states[currentStateIndex]); 
+     }
   }
 }
 
-/*
+/**
  * handle serial event
  */
 void serialEvent(Serial p) { 
-
   char inByte = (char) p.read();    
   println("Serial event : " + (char) inByte);
 
   currentStateIndex = nextStateIndexFrom(states[currentStateIndex]);
 } 
 
-char nextStateIndexFrom(char current) { 
+/**
+ *  Return next state index from the current one
+ */
+int nextStateIndexFrom(char current) { 
 
   if (current == FULL_TRACK) {
     return 1;
@@ -306,6 +345,26 @@ char nextStateIndexFrom(char current) {
     return 4;
   } else if (current == GO_TO_BASE) {
     return 1;
+  } else {
+    return 1;
+  }
+}
+
+/**
+ *  Return previous state index from the current one
+ */
+int prevStateIndexFrom(char current) { 
+
+  if (current == FULL_TRACK) {
+    return 1;
+  } else if (current == RELEASE_BALL) {
+    return 1;
+  } else if (current == SWEEP) {
+    return 1;
+  } else if (current == COLLECT_BALL) {
+    return 2;
+  } else if (current == GO_TO_BASE) {
+    return 3;
   } else {
     return 1;
   }
@@ -339,20 +398,26 @@ void report() {
     text("Sending command switch ON", 320, 520);
   } else {
     text("Sending command switch OFF", 320, 520);
+  }  
+
+  if (directCommandSwitch) {
+    text("Direct command switch is ON", 320, 540);
+  } else {
+    text("Direct command switch is OFF", 320, 540);
   }
 
   char state = states[currentStateIndex];
 
   if (state == FULL_TRACK) {
-    text("Current state: FULL_TRACK", 320, 540);
+    text("Current state: FULL_TRACK", 320, 560);
   } else if (state == RELEASE_BALL) {
-    text("Current state: RELEASE_BALL", 320, 540);
+    text("Current state: RELEASE_BALL", 320, 560);
   } else if (state == SWEEP) {
-    text("Current state: SWEEP", 320, 540);
+    text("Current state: SWEEP", 320, 560);
   } else if (state == COLLECT_BALL) {
-    text("Current state: COLLECT_BALL", 320, 540);
+    text("Current state: COLLECT_BALL", 320, 560);
   } else if (state == GO_TO_BASE) {
-    text("Current state: GO_TO_BASE", 320, 540);
+    text("Current state: GO_TO_BASE", 320, 560);
   }
 }
 
