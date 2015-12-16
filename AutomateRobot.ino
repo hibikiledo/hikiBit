@@ -74,11 +74,11 @@ void setup() {
   // Setup hardware serial for AT command monitoring
   // Do not use port TX and RX for anything
   BTSerial.begin(115200);
-  BTSerial.println("Robot program started");
+  //BTSerial.println("Robot program started");
 
   //Serial.begin(9600);
   //Serial.println("Report Serial");
-
+ 
   // initialize digitan pin 1-2 as output for mob rotation
   pinMode(MOB_A, OUTPUT);
   pinMode(MOB_B, OUTPUT);
@@ -219,7 +219,7 @@ void manual() {
   else if (incomingByte == 100) {
     M1_stop();
     M2_stop();
-  }
+  } 
   else if (incomingByte == 'z') {
     MOB_forward();
   }
@@ -228,6 +228,20 @@ void manual() {
   }
   else if (incomingByte == 'c') {
     MOB_stop();
+  }
+  else if (incomingByte == '9') { // Turn left (high precision)
+    M1_reverse(speed_val_left);
+    M2_forward(speed_val_right);
+    delay(100);
+    M1_stop();
+    M2_stop();
+  }
+  else if (incomingByte == '8') { // Turn right (high precision)
+    M1_forward(speed_val_left);
+    M2_reverse(speed_val_right);
+    delay(100);
+    M1_stop();
+    M2_stop();
   }
 }
 
