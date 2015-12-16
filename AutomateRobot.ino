@@ -20,6 +20,11 @@ SoftwareSerial BTSerial(12, 13); // RX, TX
 #define M2_B    5
 #define M2_PWM  10
 
+// Define pin number for mob motor control
+#define MOB_A 0
+#define MOB_B 1
+#define MOB_PWM 9
+
 // Define pin number for phototransistor
 #define OPTO_L    6 // Left
 #define OPTO_C    7 // Center
@@ -50,8 +55,13 @@ void setup() {
   BTSerial.begin(115200);
   BTSerial.println("Robot program started");
 
-  Serial.begin(9600);
-  Serial.println("Report Serial");
+  //Serial.begin(9600);
+  //Serial.println("Report Serial");
+
+  // initialize digitan pin 1-2 as output for mob rotation
+  pinMode(MOB_A, OUTPUT);
+  pinMode(MOB_B, OUTPUT);
+  pinMode(MOB_PWM, OUTPUT);
 
   // initialize digital pin 2-5 as output for wheel control
   pinMode(2, OUTPUT);
@@ -63,6 +73,9 @@ void setup() {
   pinMode(6, INPUT);
   pinMode(7, INPUT);
   pinMode(8, INPUT);
+
+  // initialize initial states for output pins
+
 
 }
 
@@ -76,14 +89,14 @@ void loop() {
     incomingByte = BTSerial.read();
 
     // say what you got:
-    Serial.print("I received: ");
-    Serial.println((char) incomingByte);
+    //Serial.print("I received: ");
+    //Serial.println((char) incomingByte);
     // delay 10 milliseconds to allow serial update time
     delay(10);
 
     // handle command received from the serial
     manual();
-    track_line_to_end();
+    track_line_to_base();
 
   }
 }
@@ -92,11 +105,11 @@ void loop() {
 void test_speed() {
   if (speed_val > 255) {
     speed_val = 255;
-    Serial.println(" MAX ");
+    //Serial.println(" MAX ");
   }
   if (speed_val < 0) {
     speed_val = 0;
-    Serial.println(" MIN ");
+    //Serial.println(" MIN ");
   }
 }
 
@@ -139,6 +152,23 @@ void M2_stop() {
   digitalWrite(M2_PWM, LOW);
 }
 
+/*  MOB CONTROL */
+void MOB_forward() {
+  digitalWrite(MOB_A, HIGH);
+  digitalWrite(MOB_B, LOW);
+  analogWrite(MOB_PWM, 200);
+}
+
+void MOB_reverse() {
+  digitalWrite(MOB_A, LOW);
+  digitalWrite(MOB_B, HIGH);
+  analogWrite(MOB_PWM, 200);
+}
+
+void MOB_stop() {
+  analogWrite(MOB_PWM, 0);
+}
+
 /* MANUAL CONTROL */
 void manual() {
   // check incoming byte for direction
@@ -146,18 +176,18 @@ void manual() {
   if (incomingByte == 46) {
     speed_val = speed_val + 5;
     test_speed();
-    Serial.println(speed_val);
+    //Serial.println(speed_val);
   }
   // if byte is equal to "44" or "," - lower speed
   else if (incomingByte == 44) {
     speed_val = speed_val - 5;
     test_speed();
-    Serial.println(speed_val);
+    //Serial.println(speed_val);
   }
   // if byte is equal to "47" or "/" - max speed
   else if (incomingByte == 47) {
     speed_val = 255;
-    Serial.println(" MAX ");
+    //Serial.println(" MAX ");
   }
 
   // if byte is equal to "105" or "i", go forward
@@ -185,10 +215,19 @@ void manual() {
     M1_stop();
     M2_stop();
   }
+  else if (incomingByte == 'z') {
+    MOB_forward();
+  }
+  else if (incomingByte == 'x') {
+    MOB_reverse();
+  }
+  else if (incomingByte == 'c') {
+    MOB_stop();
+  }
 }
 
 /* LINE TRACKING */
-void track_line_to_end() {
+void track_line_to_base() {
 
   boolean onTrack = true;
   int lossCounter = 0;
@@ -227,12 +266,14 @@ void track_line_to_end() {
       if (lossCounter == 15000) {
         onTrack = false;
       }
-    }    
+    }
     M1_stop();
     M2_stop();
+
+    // Tell processing that line tracking is done :)
+    BTSerial.write((char) '0');
   }
 
-  // Tell processing that line tracking is done :)
-  BTSerial.write((char) '0');
+
 }
 
