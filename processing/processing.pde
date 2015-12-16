@@ -29,8 +29,9 @@ OpenCV opencv;
 PImage bw, h, g, firstColorSnapshot, secondColorSnapshot;
 Rectangle block;
 ArrayList<Contour> contoursColor1, contoursColor2;
-int ballCountColor1 = 0, ballCountColor2 = 0;
 ArrayList<Contour> polygons;
+
+int ballCountColor1 = 0, ballCountColor2 = 0;
 
 Serial port;
 
@@ -39,12 +40,28 @@ final int CONTOUR_AREA = 5000;
 // Variables for performing inRange(start, end) on the image to find balls
 int startColor1 = 0, endColor1 = 1;
 int startColor2 = 0, endColor2 = 1;
+
 // true : color 1, false : color 2
 boolean colorSwitch = true;
 
 // Window width and height
 final int width = 640 + 320;
 final int height = 480 + 90;
+
+ArrayList<Character> preCommandQueue = new ArrayList<Character>(); 
+
+// Define constants for commands
+final Character FULL_TRACK = '0';
+final Character RELEASE_BALL = '1';
+final Character SWEEP = '2';
+final Character COLLECT_BALL = '3';
+final Character GO_TO_BASE = '4';
+
+final char[] states = new char[] {
+  FULL_TRACK, RELEASE_BALL, SWEEP, COLLECT_BALL, GO_TO_BASE
+};
+
+int currentState = 0;
 
 boolean sendingCommand = false; // A flag that determines whether the command should be sent.
 
@@ -67,11 +84,16 @@ void setup() {
   // It is possible to change the MJPEG stream by calling stop()
   // on a running camera, and then start() it with the new
   // url, username and password.
+
+  // Add preload task (state) in the queue
+  preCommandQueue.add(FULL_TRACK);
 }
 
 void draw() 
 {
   int x = 0, y = 0, size = 0, error = 0, count = 0, speed = 0;
+
+  // reset counter variables
   ballCountColor1 = 0;
   ballCountColor2 = 0;
 
@@ -81,7 +103,7 @@ void draw()
     opencv.loadImage(cam);
     opencv.useColor(HSB);
     h = opencv.getSnapshot(opencv.getH());
-    
+
     opencv.loadImage(cam);
     opencv.useGray();
     g = opencv.getSnapshot();
@@ -110,7 +132,7 @@ void draw()
 
     // Erode and dilate to eliminate small blob    
     opencv.erode();
-    opencv.dilate();   
+    opencv.dilate();
 
 
     // draw rectangle for color 1 with red border
@@ -133,7 +155,7 @@ void draw()
       }
     }
 
-    
+
     // draw rectangle for color 2 with green border
     for (Contour contour : contoursColor2) 
     {
@@ -152,37 +174,50 @@ void draw()
         // Increment counter
         ballCountColor2 += 1;
       }
-    }    
-    
+    }   
 
-    // show report
     report();
-  }
+  } // end camera available  
 
-  // communicate with arduino here
+  /*
+   * Communicate with arduino
+   *   - sendingCommand : global flag to control sending command to arduino
+   */
   if (sendingCommand) {
-    
-    // find error from center
-    error = 320 - x;
 
-    if (error > 5) { // Turn left
-      port.write('j');
-      delay(25);
-      port.write('d');
-    } else if (error < -5) { // Turn right
-      port.write('l');
-      delay(25);
-      port.write('d');
-    } else { // Ball is centered
-      if (size < 85) { // Move forward
-        port.write('i');
-        delay(500);
-        port.write('d');
+    // There are precommands .. process this first
+    if (preCommandQueue.size() > 0) {
+
+      println("Processing pre-command");
+      
+      Character command = preCommandQueue.remove(0);
+      port.write(command);
+
+    } else { // No precommands .. work in states
+
+      if (states[currentState] == COLLECT_BALL) {      
+        // find error from center
+        error = 320 - x;
+        if (error > 5) { // Turn left
+          port.write('j');
+          delay(25);
+          port.write('d');
+        } else if (error < -5) { // Turn right
+          port.write('l');
+          delay(25);
+          port.write('d');
+        } else { // Ball is centered
+          if (size < 85) { // Move forward
+            port.write('i');
+            delay(500);
+            port.write('d');
+          }
+        }
+        delay(25);
       }
     }
-    delay(25);
-  }
-}//end draw();
+  } // end sendingCommand
+} //end draw();
 
 
 /*
@@ -245,25 +280,40 @@ void keyPressed()
     }
   }
   if (key == 'c') {
-    if (colorSwitch) {
-      println("Switched to Color 2");
-    } else {
-      println("Switched to Color 1");
-    }
     colorSwitch = !colorSwitch;
   }
-  if (key == 'o' || key == 'p' || key == '[' || key == ']') {
-    if (colorSwitch) {
-      println("Color 1 # Start :" + startColor1, " End : " + endColor1);
-    } else {
-      println("Color 2 # Start :" + startColor2, " End : " + endColor2);
-    }
+}
+
+/*
+ * handle serial event
+ */
+void serialEvent(Serial p) { 
+
+  char inByte = (char) p.read();
+  
+  println("Serial event : " + (char) inByte);
+  
+  char nextState = nextStateFrom(states[currentState]);
+  currentState = nextState;
+  
+} 
+
+char nextStateFrom(char current) { 
+  
+  if (current == FULL_TRACK) {
+     return RELEASE_BALL; 
+  } else if (current == RELEASE_BALL) {
+    return SWEEP;
+  } else if (current == SWEEP) {
+    return COLLECT_BALL;
+  } else if (current == COLLECT_BALL) {
+    return GO_TO_BASE;
+  } else if (current == GO_TO_BASE) {
+    return RELEASE_BALL;
+  } else {
+     return '-'; 
   }
-  if (key == 'r') {
-    println("Report colors start and end values");
-    println("Color 1 # Start :" + startColor1, " End : " + endColor1);
-    println("Color 2 # Start :" + startColor2, " End : " + endColor2);
-  }
+  
 }
 
 void report() {
@@ -280,17 +330,31 @@ void report() {
   text("# COLOR 2: " + ballCountColor2, 20, 520);
   text("Hue range of color 1: " + startColor1 + " - " + endColor1, 20, 540);
   text("Hue range of color 2: " + startColor2 + " - " + endColor2, 20, 560);
-  
+
   if (colorSwitch) {
-     text("Working on COLOR 1", 320, 500); 
+    text("Working on COLOR 1", 320, 500);
   } else {
-     text("Working on COLOR 2", 320, 500); 
+    text("Working on COLOR 2", 320, 500);
   }
-  
+
   if (sendingCommand) {
-     text("Sending command switch ON", 320, 520); 
+    text("Sending command switch ON", 320, 520);
   } else {
-     text("Sending command switch OFF", 320, 520); 
+    text("Sending command switch OFF", 320, 520);
+  }
+
+  char state = states[currentState];
+
+  if (state == FULL_TRACK) {
+    text("Current state: FULL_TRACK", 320, 540);
+  } else if (state == RELEASE_BALL) {
+    text("Current state: RELEASE_BALL", 320, 540);
+  } else if (state == SWEEP) {
+    text("Current state: SWEEP", 320, 540);
+  } else if (state == COLLECT_BALL) {
+    text("Current state: COLLECT_BALL", 320, 540);
+  } else if (state == GO_TO_BASE) {
+    text("Current state: GO_TO_BASE", 320, 540);
   }
 }
 
