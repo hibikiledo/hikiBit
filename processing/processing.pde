@@ -61,7 +61,7 @@ final char[] states = new char[] {
   FULL_TRACK, RELEASE_BALL, SWEEP, COLLECT_BALL, GO_TO_BASE
 };
 
-int currentState = 0;
+int currentStateIndex = 0;
 
 boolean sendingCommand = false; // A flag that determines whether the command should be sent.
 
@@ -71,7 +71,7 @@ void setup() {
   //cam = new IPCapture(this, "http://192.168.1.109/live", "", ""); // iOS's iPCamera (Doesn't work yet)
   cam.start();
 
-  //port = new Serial(this, "/dev/cu.hikiBot-DevB", 115200);
+  port = new Serial(this, "/dev/cu.hikiBot-DevB", 115200);
 
   // Initialize opencv here to avoid getting welcome messages
   opencv = new OpenCV(this, 640, 480);
@@ -189,13 +189,12 @@ void draw()
     if (preCommandQueue.size() > 0) {
 
       println("Processing pre-command");
-      
+
       Character command = preCommandQueue.remove(0);
       port.write(command);
-
     } else { // No precommands .. work in states
 
-      if (states[currentState] == COLLECT_BALL) {      
+      if (states[currentStateIndex] == COLLECT_BALL) {
         // find error from center
         error = 320 - x;
         if (error > 5) { // Turn left
@@ -289,33 +288,32 @@ void keyPressed()
  */
 void serialEvent(Serial p) { 
 
-  char inByte = (char) p.read();
-  
+  char inByte = (char) p.read();    
   println("Serial event : " + (char) inByte);
-  
-  char nextState = nextStateFrom(states[currentState]);
-  currentState = nextState;
-  
+
+  currentStateIndex = nextStateIndexFrom(states[currentStateIndex]);
 } 
 
-char nextStateFrom(char current) { 
-  
+char nextStateIndexFrom(char current) { 
+
   if (current == FULL_TRACK) {
-     return RELEASE_BALL; 
+    return 1;
   } else if (current == RELEASE_BALL) {
-    return SWEEP;
+    return 2;
   } else if (current == SWEEP) {
-    return COLLECT_BALL;
+    return 3;
   } else if (current == COLLECT_BALL) {
-    return GO_TO_BASE;
+    return 4;
   } else if (current == GO_TO_BASE) {
-    return RELEASE_BALL;
+    return 1;
   } else {
-     return '-'; 
+    return 1;
   }
-  
 }
 
+/* 
+ * Update on screen report
+ */
 void report() {
   // clear report portion
   fill(50, 50, 50);
@@ -343,7 +341,7 @@ void report() {
     text("Sending command switch OFF", 320, 520);
   }
 
-  char state = states[currentState];
+  char state = states[currentStateIndex];
 
   if (state == FULL_TRACK) {
     text("Current state: FULL_TRACK", 320, 540);

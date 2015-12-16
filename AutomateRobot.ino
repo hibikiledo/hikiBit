@@ -76,8 +76,8 @@ void loop() {
     incomingByte = BTSerial.read();
 
     // say what you got:
-    BTSerial.print("I received: ");
-    BTSerial.println((char)incomingByte);
+    Serial.print("I received: ");
+    Serial.println((char) incomingByte);
     // delay 10 milliseconds to allow serial update time
     delay(10);
 
@@ -92,11 +92,11 @@ void loop() {
 void test_speed() {
   if (speed_val > 255) {
     speed_val = 255;
-    BTSerial.println(" MAX ");
+    Serial.println(" MAX ");
   }
   if (speed_val < 0) {
     speed_val = 0;
-    BTSerial.println(" MIN ");
+    Serial.println(" MIN ");
   }
 }
 
@@ -146,18 +146,18 @@ void manual() {
   if (incomingByte == 46) {
     speed_val = speed_val + 5;
     test_speed();
-    BTSerial.println(speed_val);
+    Serial.println(speed_val);
   }
   // if byte is equal to "44" or "," - lower speed
   else if (incomingByte == 44) {
     speed_val = speed_val - 5;
     test_speed();
-    BTSerial.println(speed_val);
+    Serial.println(speed_val);
   }
   // if byte is equal to "47" or "/" - max speed
   else if (incomingByte == 47) {
     speed_val = 255;
-    BTSerial.println(" MAX ");
+    Serial.println(" MAX ");
   }
 
   // if byte is equal to "105" or "i", go forward
@@ -224,12 +224,15 @@ void track_line_to_end() {
       else if (L == HIGH && R == HIGH && C == HIGH) {
         lossCounter += 1;
       }
-      if (lossCounter == 10000) {
+      if (lossCounter == 15000) {
         onTrack = false;
       }
     }    
     M1_stop();
     M2_stop();
   }
+
+  // Tell processing that line tracking is done :)
+  BTSerial.write((char) '0');
 }
 
