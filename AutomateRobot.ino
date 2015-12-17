@@ -233,11 +233,14 @@ void track_line_from_start_to_base_task() {
 
 /* SHARED FUNCTIONs ACROSS TASKS */
 void track_line_to_base() {
-  boolean endOfTrack = false;
-  int loss_count = 0;
-  int previousState = 0;
 
+  boolean endOfTrack = false;
+
+  int previousState = 0;
   int track_speed = 150;
+
+  int left_right_count = 0;
+  int loss_count = 0;
 
   while (!endOfTrack) {
 
@@ -245,20 +248,17 @@ void track_line_to_base() {
     int R = digitalRead(OPTO_R);
     int C = digitalRead(OPTO_C);
 
-    if (L == LOW || (L == LOW && C == LOW)) {  // Turn left
+    if (L == LOW) {  // Turn left
       BTSerial.println("LEFT FOUND");
       previousState = LEFT;
       M1_reverse(track_speed - 50);
       M2_forward(track_speed + 20);
-     }
-    else if (R == LOW || (R == LOW && C == LOW)) {  // Turn right
+    }
+    else if (R == LOW) {  // Turn right
       BTSerial.println("RIGHT FOUND");
       previousState = RIGHT;
       M1_forward(track_speed - 50);
       M2_reverse(track_speed + 20);
-    }
-    else if (C == LOW && L == LOW && R == LOW) {
-      BTSerial.println("FOUND ALL");
     }
     else if (C == LOW) {  // Forward
       BTSerial.println("CENTER FOUND");
@@ -266,8 +266,8 @@ void track_line_to_base() {
       M1_forward(track_speed - 50 - 10);
       M2_forward(track_speed + 20 - 10);
     }
-    // We lost our track .. try to go back to track
     else if (L == HIGH && C == HIGH && R == HIGH) {
+      BTSerial.println("LOSS");
       if (previousState == LEFT) {
         M1_reverse(track_speed - 50);
         M2_forward(track_speed + 20);
@@ -275,11 +275,8 @@ void track_line_to_base() {
       else if (previousState == RIGHT) {
         M1_forward(track_speed - 50);
         M2_reverse(track_speed + 20);
-      }      
-      else if (previousState == CENTER) { // worst case ;(' we don't know which direction we should go
-                                          // To fix it ? let's find the path        
-        loss_count += 1;
-        BTSerial.println("LOSS");
+      }
+      else if (previousState == CENTER) { // due to nature of the sensor . turning right solves the problem.
 
         // stop everthing and wait for robot to be stable
         M1_stop();
@@ -296,61 +293,84 @@ void track_line_to_base() {
         delay(500);
 
         // sweep with hope to find the line
-        int direction = LEFT; // start by sweeping to the left
-        int turn_count = 0; // count how many times robot has been turned
+        int turn_left_count = 0;
+        int turn_right_count = 0;
+        const int MAX_TURN_COUNT = 40;
+
+        // sweep to the left
         do {
-          BTSerial.println("Finding the line ...");
+          C = digitalRead(OPTO_C);
+          M1_reverse(track_speed - 50);
+          M2_forward(track_speed + 20);
+          delay(50);
+          M1_stop();
+          M2_stop();
+          turn_left_count += 1;
+        } while (C == HIGH && turn_left_count < MAX_TURN_COUNT);
 
-          if (turn_count >= 3) {
-            direction = RIGHT;
-          }
+        // we are back on track
+        if (turn_left_count != MAX_TURN_COUNT) {
+          continue;
+        }
 
-          if (direction == LEFT) {
-            M1_reverse(track_speed - 50);
-            M2_forward(track_speed + 20);
-            delay(25);
-            M1_stop();
-            M2_stop();
-          }
+        // rotate back to center
+        for (int i = 0; i < turn_left_count; i++) {
+          M1_forward(track_speed - 50);
+          M2_reverse(track_speed + 20);
+          delay(50);
+          M1_stop();
+          M2_stop();
+        }
 
-          if (direction == RIGHT) {
-            M1_forward(track_speed - 50);
-            M2_reverse(track_speed + 20);
-            delay(25);
-            M1_stop();
-            M2_stop();
-          }
+        // we are probably at base
+        if (turn_left_count == MAX_TURN_COUNT) {
+          break;
+        }
 
-          // increment try count
-          turn_count += 1;
+        // sweep to the right
+        do {
+          C = digitalRead(OPTO_C);
+          M1_forward(track_speed - 50);
+          M2_reverse(track_speed + 20);
+          delay(50);
+          M1_stop();
+          M2_stop();
+          turn_right_count += 1;
+        } while (C == HIGH && turn_right_count < MAX_TURN_COUNT);
 
-          // wait for robot to be stable
-          delay(200);
+        if (turn_right_count != MAX_TURN_COUNT) {
+          continue;
+        }
 
-        } while (L == LOW && C == LOW && R == LOW); // do until any of the sensor find the track
+        // rotate back to center
+        for (int i = 0; i < turn_right_count; i++) {
+          M1_reverse(track_speed - 50);
+          M2_forward(track_speed + 20);
+          delay(50);
+          M1_stop();
+          M2_stop();
+        }
 
-        BTSerial.println("Line found .. back to normal");
+        // we are probably at base
+        if (turn_right_count == MAX_TURN_COUNT) {
+          break;
+        }
 
       }
-    }
-    
-    /*
-    if (loss_count > 4) {
-      BTSerial.println("It seems like we have reached our base.");
-      break;
-    }
-    */
 
-    // check if any command has been sent, if so, leave line tracking mode
-    if (BTSerial.available()) {
-      break;
+      // check if any command has been sent, if so, leave line tracking mode
+      if (BTSerial.available()) {
+        break;
+      }
     }
 
-  }
+  } // end of track
 
+  BTSerial.println("Seems like we are at base STOP!");
   M1_stop();
   M2_stop();
-}
+} // end line tracking
+
 
 
 /* CONTROLLING MOTORS */
