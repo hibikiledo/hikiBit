@@ -237,6 +237,9 @@ void track_line_to_base() {
   int lossCounter = 0;
   int previousState = 0;
 
+  int slowSpeed = 100;
+  int fastSpeed = 200;
+
   // if byte is equals to 48 or '0', track line to the end
   if (incomingByte == '0') {
 
@@ -247,13 +250,13 @@ void track_line_to_base() {
       int C = digitalRead(OPTO_C);
 
       if (L == LOW) {  // Turn right
-        previousState = LEFT;
+        previousState = RIGHT;
         M1_reverse(forwardSpeedLeft);
         M2_forward(reverseSpeedRight);
         lossCounter = 0;
       }
       else if (R == LOW) {  // Turn left
-        previousState = RIGHT;
+        previousState = LEFT;
         M1_forward(reverseSpeedLeft);
         M2_reverse(forwardSpeedRight);
         lossCounter = 0;
@@ -267,11 +270,11 @@ void track_line_to_base() {
       // we detect nothing here .. try to get back to track
       else if (L == HIGH && R == HIGH && C == HIGH) {
         lossCounter += 1;
-        if (previousState == LEFT) {
+        if (previousState == RIGHT) {
           M1_reverse(forwardSpeedLeft);
           M2_forward(reverseSpeedRight);
         }
-        else if (previousState == RIGHT) {
+        else if (previousState == LEFT) {
           M1_forward(reverseSpeedLeft);
           M2_reverse(forwardSpeedRight);
         }
