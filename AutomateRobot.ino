@@ -358,10 +358,11 @@ void track_line_to_base() {
 
       }
 
-      // check if any command has been sent, if so, leave line tracking mode
-      if (BTSerial.available()) {
-        break;
-      }
+    }
+
+    // check if any command has been sent, if so, leave line tracking mode
+    if (BTSerial.available()) {
+      break;
     }
 
   } // end of track
