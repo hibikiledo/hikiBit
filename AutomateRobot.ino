@@ -10,12 +10,21 @@
 // Setup Pin 12 and 13 for Serial RX and TX
 SoftwareSerial BTSerial(12, 13); // RX, TX
 
-// Define directions
+// Define states for LINE TRACKER
 #define LEFT    0
 #define CENTER  1
 #define RIGHT   2
 
-// Define forward or backward
+/*
+ * Define states for Motors
+ *   FORWARD : motor is rotating in forward direction
+ *   REVERSE : motor is rotating in reverse direction
+ *   NONE : motor is stopped
+ *
+ * Note
+ *   The states are used for implementing fast stop.
+ *   Fast stop allows robot to suddenly stop without continue moving.
+ */
 #define FORWARD   1
 #define REVERSE   2
 #define NONE      0
@@ -45,28 +54,25 @@ SoftwareSerial BTSerial(12, 13); // RX, TX
 #define ECHO_PIN      9  // Arduino pin tied to echo pin on the ultrasonic sensor.
 #define MAX_DISTANCE  100 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
+// Define delay for motion in reverse direction for fast stop implementation
 #define FAST_STOP_DELAY 10
 
 // variable to store serial data
 int incomingByte = 0;
-
-// actual speed of M1 and M2
-int M1_speed = 0;
-int M2_speed = 0;
 
 // variable to store current state of motor
 int M1_state = NONE;
 int M2_state = NONE;
 
 // [CONFIG] variable to store speed value for MANUAL control
-int speed_val_left = 200;
-int speed_val_right = 250;
+#define speed_val_left  200
+#define speed_val_right 250
 
 // [CONFIG] variable to setup the speed for tracking
-const int forwardSpeedLeft = 150;
-const int forwardSpeedRight = 200;
-const int reverseSpeedLeft = 150;
-const int reverseSpeedRight = 200;
+#define forwardSpeedLeft  150
+#define forwardSpeedRight 200
+#define reverseSpeedLeft  150
+#define reverseSpeedRight 200
 
 int n = 0;
 
@@ -80,7 +86,7 @@ void setup() {
 
   //Serial.begin(9600);
   //Serial.println("Report Serial");
- 
+
   // initialize digitan pin 1-2 as output for mob rotation
   pinMode(MOB_A, OUTPUT);
   pinMode(MOB_B, OUTPUT);
@@ -107,17 +113,22 @@ void loop() {
 
     // read the incoming byte:
     incomingByte = BTSerial.read();
-    
+
     //Serial.print("I received: ");
     //Serial.println((char) incomingByte);
     // delay 10 milliseconds to allow serial update time
     delay(10);
 
-    // handle command received from the serial
+    // perform manual command dispatching
     manual();
-    track_line_from_start_to_base_task();
-    release_ball_task();
 
+    // check for task sent from processing
+    if (incomingByte == '0') {
+      track_line_from_start_to_base_task();
+    }
+    if (incomingByte == '1') {
+      release_ball_task();
+    }
   }
 }
 
@@ -147,7 +158,7 @@ void manual() {
   else if (incomingByte == 100) {
     M1_stop();
     M2_stop();
-  } 
+  }
   else if (incomingByte == 'z') {
     MOB_forward();
   }
@@ -160,13 +171,27 @@ void manual() {
   else if (incomingByte == '9') { // Turn left (high precision)
     M1_reverse(speed_val_left);
     M2_forward(speed_val_right);
-    delay(100);
+    delay(50);
     M1_stop();
     M2_stop();
   }
   else if (incomingByte == '8') { // Turn right (high precision)
     M1_forward(speed_val_left);
     M2_reverse(speed_val_right);
+    delay(50);
+    M1_stop();
+    M2_stop();
+  }
+  else if (incomingByte == '7') { // Long forward
+    M1_forward(speed_val_left);
+    M2_forward(speed_val_right);
+    delay(500);
+    M1_stop();
+    M2_stop();
+  }
+  else if (incomingByte == '6') { // Short forward
+    M1_forward(speed_val_left);
+    M2_forward(speed_val_right);
     delay(100);
     M1_stop();
     M2_stop();
@@ -176,31 +201,38 @@ void manual() {
 /* RELEASE BALL */
 void release_ball_task() {
 
-  if (incomingByte == '1') {
+  // reverse direction of mob
+  MOB_reverse();
 
-    // reverse direction of mob
-    MOB_reverse();
+  // move back a little
+  M1_reverse(100);
+  M2_reverse(100);
 
-    // move back a little
-    M1_reverse(100);
-    M2_reverse(100);
+  delay(1000);
 
-    delay(1000);
+  M1_stop();
+  M2_stop();
+  MOB_stop();
 
-    M1_stop();
-    M2_stop();
-    MOB_stop();
-
-    // Tell processing that release ball task is done :)
-    BTSerial.write((char) '1');
-
-  }
+  // Tell processing that release ball task is done :)
+  BTSerial.write((char) '1');
 
 }
 
-/* LINE TRACKING */
+/* LINE TRACKING TASK */
 void track_line_from_start_to_base_task() {
 
+  // call a shared implementation of line tracking
+  track_line_to_base();
+
+  // notify processing that the task is done
+  BTSerial.write((char) '0');
+
+}
+
+
+/* SHARED FUNCTIONs ACROSS TASKS */
+void track_line_to_base() {
   boolean endOfTrack = false;
   int lossCounter = 0;
   int previousState = 0;
@@ -257,9 +289,6 @@ void track_line_from_start_to_base_task() {
 
     M1_stop();
     M2_stop();
-
-    // Tell processing that line tracking is done :)
-    BTSerial.write((char) '0');
   }
 }
 
