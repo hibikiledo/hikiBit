@@ -37,7 +37,7 @@ int ballCountColor1 = 0, ballCountColor2 = 0;
 
 Serial port;
 
-final int CONTOUR_AREA = 1000;
+final int CONTOUR_AREA = 600;
 
 // Variables for performing inRange(start, end) on the image to find balls
 int startColor1 = 0, endColor1 = 1;
