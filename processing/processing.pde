@@ -176,7 +176,7 @@ void draw()
         // Increment counter
         ballCountColor1 += 1;
       }
-    }
+    }    
 
     report();
   } // end camera available  
@@ -198,7 +198,7 @@ void draw()
       if (states[currentStateIndex] == COLLECT_BALL) {
         /* Collect balls */
         // I use globalCounter instead of calling to delay() to keep video smooth
-        if ((int) globalCounter % 20 == 0) {
+        if ((int) globalCounter % 20 == 0) {          
 
           // find error from center ( 320 comes from 640/2 or width of image / 2 )
           error = 320 - x;
@@ -212,11 +212,12 @@ void draw()
             println("turning right");
             port.write('8');
           } else { // Ball is centered
-            if (size < 85) { // Move forward
+            if (size > 65) { // Move forward .. catch it!
               println("Size < 85 .. moving forward");
-              port.write('i');
-              delay(500);
-              port.write('d');
+              port.write('7');
+            } else { // Move forward to get closer to it
+              println("Almost there .. going closer");
+              port.write('6');
             }
           }
         }
@@ -305,18 +306,18 @@ void keyPressed()
     if (key == 'c') {
       colorSwitch = !colorSwitch;
     }
-    
+
     /**
      * Keys for switching between states
      * ',' (<) : go to previous state
      * '.' (>) : go to next state
      */
-     if (key == ',') {
-        currentStateIndex = prevStateIndexFrom(states[currentStateIndex]); 
-     }
-     if (key == '.') {
-        currentStateIndex = nextStateIndexFrom(states[currentStateIndex]); 
-     }
+    if (key == ',') {
+      currentStateIndex = prevStateIndexFrom(states[currentStateIndex]);
+    }
+    if (key == '.') {
+      currentStateIndex = nextStateIndexFrom(states[currentStateIndex]);
+    }
   }
 }
 
@@ -327,7 +328,7 @@ void serialEvent(Serial p) {
   char inByte = (char) p.read();    
   println("Serial event : " + (char) inByte);
 
-  currentStateIndex = nextStateIndexFrom(states[currentStateIndex]);
+  currentStateIndex = nextStateIndexFrom(inByte);
 } 
 
 /**
