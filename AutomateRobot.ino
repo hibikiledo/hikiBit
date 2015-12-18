@@ -201,12 +201,20 @@ void manual() {
 /* RELEASE BALL */
 void release_ball_task() {
 
+  M1_forward(speed_val_left);
+  M2_forward(speed_val_right);
+  delay(100);
+  M1_stop();
+  M2_stop();
+
+
   // reverse direction of mob
   MOB_reverse();
+  delay(700);
 
   // move back a little
-  M1_reverse(150);
-  M2_reverse(150);
+  M1_reverse(250);
+  M2_reverse(250);
 
   delay(800);
 
@@ -241,7 +249,7 @@ void track_line_to_base() {
   boolean endOfTrack = false;
 
   int previousState = 0;
-  int track_speed = 180;
+  int track_speed = 200;
 
   int center_loss_count = 0;
   int loss_count = 0;
@@ -286,7 +294,7 @@ void track_line_to_base() {
         // stop everthing and wait for robot to be stable
         M1_stop();
         M2_stop();
-        delay(500);
+        delay(700);
 
         // reverse back a little with a hope that we get on the line
         M1_reverse(track_speed - 20);
@@ -295,12 +303,12 @@ void track_line_to_base() {
 
         M1_stop();
         M2_stop();
-        delay(500);
+        delay(700);
 
         // sweep with hope to find the line
         int turn_left_count = 0;
         int turn_right_count = 0;
-        const int MAX_TURN_COUNT = 20;
+        const int MAX_TURN_COUNT = 10;
 
         // sweep to the left
         do {
@@ -337,7 +345,7 @@ void track_line_to_base() {
           C = digitalRead(OPTO_C);
           M1_forward(track_speed - 50);
           M2_reverse(track_speed + 20);
-          delay(50);
+          delay(25);
           M1_stop();
           M2_stop();
           turn_right_count += 1;
@@ -351,7 +359,7 @@ void track_line_to_base() {
         for (int i = 0; i < turn_right_count; i++) {
           M1_reverse(track_speed - 50);
           M2_forward(track_speed + 20);
-          delay(50);
+          delay(25);
           M1_stop();
           M2_stop();
         }
@@ -365,7 +373,7 @@ void track_line_to_base() {
 
     }
 
-    if (center_loss_count > 5) {
+    if (center_loss_count > 6) {
       break;
     }
 
