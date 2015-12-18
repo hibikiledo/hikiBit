@@ -205,10 +205,10 @@ void release_ball_task() {
   MOB_reverse();
 
   // move back a little
-  M1_reverse(100);
-  M2_reverse(100);
+  M1_reverse(150);
+  M2_reverse(150);
 
-  delay(1000);
+  delay(800);
 
   M1_stop();
   M2_stop();
@@ -222,8 +222,12 @@ void release_ball_task() {
 /* LINE TRACKING TASK */
 void track_line_from_start_to_base_task() {
 
+  MOB_forward();
+
   // call a shared implementation of line tracking
   track_line_to_base();
+
+  MOB_stop();
 
   // notify processing that the task is done
   BTSerial.write((char) '0');
@@ -237,9 +241,9 @@ void track_line_to_base() {
   boolean endOfTrack = false;
 
   int previousState = 0;
-  int track_speed = 150;
+  int track_speed = 180;
 
-  int left_right_count = 0;
+  int center_loss_count = 0;
   int loss_count = 0;
 
   while (!endOfTrack) {
@@ -249,25 +253,25 @@ void track_line_to_base() {
     int C = digitalRead(OPTO_C);
 
     if (L == LOW) {  // Turn left
-      BTSerial.println("LEFT FOUND");
+      //BTSerial.println("LEFT FOUND");
       previousState = LEFT;
       M1_reverse(track_speed - 50);
       M2_forward(track_speed + 20);
     }
     else if (R == LOW) {  // Turn right
-      BTSerial.println("RIGHT FOUND");
+      //BTSerial.println("RIGHT FOUND");
       previousState = RIGHT;
       M1_forward(track_speed - 50);
       M2_reverse(track_speed + 20);
     }
     else if (C == LOW) {  // Forward
-      BTSerial.println("CENTER FOUND");
+      //BTSerial.println("CENTER FOUND");
       previousState = CENTER;
       M1_forward(track_speed - 50 - 10);
       M2_forward(track_speed + 20 - 10);
     }
     else if (L == HIGH && C == HIGH && R == HIGH) {
-      BTSerial.println("LOSS");
+      //BTSerial.println("LOSS");
       if (previousState == LEFT) {
         M1_reverse(track_speed - 50);
         M2_forward(track_speed + 20);
@@ -277,6 +281,7 @@ void track_line_to_base() {
         M2_reverse(track_speed + 20);
       }
       else if (previousState == CENTER) { // due to nature of the sensor . turning right solves the problem.
+        center_loss_count += 1;
 
         // stop everthing and wait for robot to be stable
         M1_stop();
@@ -295,7 +300,7 @@ void track_line_to_base() {
         // sweep with hope to find the line
         int turn_left_count = 0;
         int turn_right_count = 0;
-        const int MAX_TURN_COUNT = 40;
+        const int MAX_TURN_COUNT = 20;
 
         // sweep to the left
         do {
@@ -316,7 +321,7 @@ void track_line_to_base() {
         // rotate back to center
         for (int i = 0; i < turn_left_count; i++) {
           M1_forward(track_speed - 50);
-          M2_reverse(track_speed + 20);
+          M2_reverse(track_speed + 10);
           delay(50);
           M1_stop();
           M2_stop();
@@ -360,6 +365,10 @@ void track_line_to_base() {
 
     }
 
+    if (center_loss_count > 5) {
+      break;
+    }
+
     // check if any command has been sent, if so, leave line tracking mode
     if (BTSerial.available()) {
       break;
@@ -367,7 +376,7 @@ void track_line_to_base() {
 
   } // end of track
 
-  BTSerial.println("Seems like we are at base STOP!");
+  //BTSerial.println("Seems like we are at base STOP!");
   M1_stop();
   M2_stop();
 } // end line tracking
