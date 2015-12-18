@@ -73,7 +73,7 @@ boolean performing = false;
 
 void setup() {
   size(width, height);
-  cam = new IPCapture(this, "http://172.29.50.72:8080/video", "", ""); // Android's Ipwebcam
+  cam = new IPCapture(this, "http://192.168.43.1:8080/video", "", ""); // Android's Ipwebcam
   //cam = new IPCapture(this, "http://192.168.1.109/live", "", ""); // iOS's iPCamera (Doesn't work yet)
   cam.start();
 
