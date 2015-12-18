@@ -66,13 +66,10 @@ int M2_state = NONE;
 
 // [CONFIG] variable to store speed value for MANUAL control
 #define speed_val_left  200
-#define speed_val_right 250
+#define speed_val_right 200
 
 // [CONFIG] variable to setup the speed for tracking
-#define forwardSpeedLeft  150
-#define forwardSpeedRight 200
-#define reverseSpeedLeft  150
-#define reverseSpeedRight 200
+#define track_speed  150
 
 int n = 0;
 
@@ -246,8 +243,7 @@ void track_line_from_start_to_base_task() {
 /* SHARED FUNCTIONs ACROSS TASKS */
 void track_line_to_base() {  
 
-  int heading = 0;
-  int track_speed = 200;
+  int heading = 0;  
   int center_loss_count = 0; 
 
   const int MAX_TURN_COUNT = 10;
@@ -266,40 +262,40 @@ void track_line_to_base() {
     else if (L == LOW && C == LOW && R == HIGH) {
       heading = LEFT;
       M1_reverse(track_speed - 50);
-      M2_forward(track_speed + 20);
+      M2_forward(track_speed - 50);
     }
     else if (L == LOW && C == HIGH && R == LOW) { // todo
 
     }
     else if (L == LOW && C == HIGH && R == HIGH) {
       heading = LEFT;
-      M1_reverse(track_speed - 50);
-      M2_forward(track_speed + 20);
+      M1_reverse(track_speed);
+      M2_forward(track_speed);
     }
     else if (L == HIGH && C == LOW && R == LOW) {
       heading = RIGHT;
       M1_forward(track_speed - 50);
-      M2_reverse(track_speed + 20);
+      M2_reverse(track_speed - 50);
     }
     else if (L == HIGH && C == LOW && R == HIGH) {
       heading = CENTER;
-      M1_forward(track_speed - 50 - 10);
-      M2_forward(track_speed + 20 - 10);
+      M1_forward(track_speed);
+      M2_forward(track_speed);
     }
     else if (L == HIGH && C == HIGH && R == LOW) {
       heading = RIGHT;
-      M1_forward(track_speed - 50);
-      M2_reverse(track_speed + 20);
+      M1_forward(track_speed);
+      M2_reverse(track_speed);
     }
     else if (L == HIGH && C == HIGH && R == HIGH) {
       //BTSerial.println("LOSS");
       if (heading == LEFT) {
-        M1_reverse(track_speed - 50);
-        M2_forward(track_speed + 20);
+        M1_reverse(track_speed);
+        M2_forward(track_speed);
       }
       else if (heading == RIGHT) {
-        M1_forward(track_speed - 50);
-        M2_reverse(track_speed + 20);
+        M1_forward(track_speed);
+        M2_reverse(track_speed);
       }
       else if (heading == CENTER) {
         center_loss_count += 1;
@@ -310,8 +306,8 @@ void track_line_to_base() {
         delay(700);
 
         // reverse back a little with a hope that we get on the line
-        M1_reverse(track_speed - 20);
-        M2_reverse(track_speed + 20);
+        M1_reverse(track_speed);
+        M2_reverse(track_speed);
         delay(100);
 
         M1_stop();
@@ -325,8 +321,8 @@ void track_line_to_base() {
         // sweep to the left
         do {
           C = digitalRead(OPTO_C);
-          M1_reverse(track_speed - 50);
-          M2_forward(track_speed + 20);
+          M1_reverse(track_speed);
+          M2_forward(track_speed);
           delay(50);
           M1_stop();
           M2_stop();
@@ -340,8 +336,8 @@ void track_line_to_base() {
 
         // rotate back to center
         for (int i = 0; i < turn_left_count; i++) {
-          M1_forward(track_speed - 50);
-          M2_reverse(track_speed + 10);
+          M1_forward(track_speed);
+          M2_reverse(track_speed);
           delay(50);
           M1_stop();
           M2_stop();
@@ -355,8 +351,8 @@ void track_line_to_base() {
         // sweep to the right
         do {
           C = digitalRead(OPTO_C);
-          M1_forward(track_speed - 50);
-          M2_reverse(track_speed + 20);
+          M1_forward(track_speed);
+          M2_reverse(track_speed);
           delay(25);
           M1_stop();
           M2_stop();
@@ -369,8 +365,8 @@ void track_line_to_base() {
 
         // rotate back to center
         for (int i = 0; i < turn_right_count; i++) {
-          M1_reverse(track_speed - 50);
-          M2_forward(track_speed + 20);
+          M1_reverse(track_speed);
+          M2_forward(track_speed);
           delay(25);
           M1_stop();
           M2_stop();
