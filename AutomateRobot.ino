@@ -244,51 +244,64 @@ void track_line_from_start_to_base_task() {
 
 
 /* SHARED FUNCTIONs ACROSS TASKS */
-void track_line_to_base() {
+void track_line_to_base() {  
 
-  boolean endOfTrack = false;
-
-  int previousState = 0;
+  int heading = 0;
   int track_speed = 200;
+  int center_loss_count = 0; 
 
-  int center_loss_count = 0;
-  int loss_count = 0;
+  const int MAX_TURN_COUNT = 10;
 
-  while (!endOfTrack) {
+  while (true) {
 
     int L = digitalRead(OPTO_L);
     int R = digitalRead(OPTO_R);
     int C = digitalRead(OPTO_C);
 
-    if (L == LOW) {  // Turn left
-      //BTSerial.println("LEFT FOUND");
-      previousState = LEFT;
-      M1_reverse(track_speed - 50);
-      M2_forward(track_speed + 20);
-    }
-    else if (R == LOW) {  // Turn right
-      //BTSerial.println("RIGHT FOUND");
-      previousState = RIGHT;
-      M1_forward(track_speed - 50);
-      M2_reverse(track_speed + 20);
-    }
-    else if (C == LOW) {  // Forward
-      //BTSerial.println("CENTER FOUND");
-      previousState = CENTER;
+    if (L == LOW && C == LOW && R == LOW) {
+      heading = CENTER;
       M1_forward(track_speed - 50 - 10);
       M2_forward(track_speed + 20 - 10);
     }
+    else if (L == LOW && C == LOW && R == HIGH) {
+      heading = LEFT;
+      M1_reverse(track_speed - 50);
+      M2_forward(track_speed + 20);
+    }
+    else if (L == LOW && C == HIGH && R == LOW) { // todo
+
+    }
+    else if (L == LOW && C == HIGH && R == HIGH) {
+      heading = LEFT;
+      M1_reverse(track_speed - 50);
+      M2_forward(track_speed + 20);
+    }
+    else if (L == HIGH && C == LOW && R == LOW) {
+      heading = RIGHT;
+      M1_forward(track_speed - 50);
+      M2_reverse(track_speed + 20);
+    }
+    else if (L == HIGH && C == LOW && R == HIGH) {
+      heading = CENTER;
+      M1_forward(track_speed - 50 - 10);
+      M2_forward(track_speed + 20 - 10);
+    }
+    else if (L == HIGH && C == HIGH && R == LOW) {
+      heading = RIGHT;
+      M1_forward(track_speed - 50);
+      M2_reverse(track_speed + 20);
+    }
     else if (L == HIGH && C == HIGH && R == HIGH) {
       //BTSerial.println("LOSS");
-      if (previousState == LEFT) {
+      if (heading == LEFT) {
         M1_reverse(track_speed - 50);
         M2_forward(track_speed + 20);
       }
-      else if (previousState == RIGHT) {
+      else if (heading == RIGHT) {
         M1_forward(track_speed - 50);
         M2_reverse(track_speed + 20);
       }
-      else if (previousState == CENTER) { // due to nature of the sensor . turning right solves the problem.
+      else if (heading == CENTER) {
         center_loss_count += 1;
 
         // stop everthing and wait for robot to be stable
@@ -307,8 +320,7 @@ void track_line_to_base() {
 
         // sweep with hope to find the line
         int turn_left_count = 0;
-        int turn_right_count = 0;
-        const int MAX_TURN_COUNT = 10;
+        int turn_right_count = 0;        
 
         // sweep to the left
         do {
@@ -368,10 +380,8 @@ void track_line_to_base() {
         if (turn_right_count == MAX_TURN_COUNT) {
           break;
         }
-
       }
-
-    }
+    } // end handle H H H
 
     if (center_loss_count > 6) {
       break;
