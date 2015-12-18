@@ -37,7 +37,7 @@ int ballCountColor1 = 0, ballCountColor2 = 0;
 
 Serial port;
 
-final int CONTOUR_AREA = 600;
+final int CONTOUR_AREA = 1200;
 
 // Variables for performing inRange(start, end) on the image to find balls
 int startColor1 = 0, endColor1 = 1;
@@ -69,9 +69,11 @@ double globalCounter = 0;
 boolean sendingCommand = false; // A flag that determines whether the command should be sent.
 boolean directCommandSwitch = false; // A flag that determines if keypress should be sent directly without processing
 
+boolean performing = false;
+
 void setup() {
   size(width, height);
-  cam = new IPCapture(this, "http://192.168.43.1:8080/video", "", ""); // Android's Ipwebcam
+  cam = new IPCapture(this, "http://172.29.50.72:8080/video", "", ""); // Android's Ipwebcam
   //cam = new IPCapture(this, "http://192.168.1.109/live", "", ""); // iOS's iPCamera (Doesn't work yet)
   cam.start();
 
@@ -195,10 +197,26 @@ void draw()
     // pre command has been handled, process other commands as normal
     else {
 
+      if (states[currentStateIndex] == FULL_TRACK) {     
+        if (!performing) {   
+          port.write('0'); 
+          println("write 0 to port");
+          performing = true;
+        }
+      }
+      
+      if (states[currentStateIndex] == RELEASE_BALL) {
+         if (!performing) {
+            port.write('1');
+            println("write 1 to port");
+            performing = true;
+         } 
+      }
+
       if (states[currentStateIndex] == COLLECT_BALL) {
         /* Collect balls */
         // I use globalCounter instead of calling to delay() to keep video smooth
-        if ((int) globalCounter % 20 == 0) {          
+        if ((int) globalCounter % 10 == 0) {          
 
           // find error from center ( 320 comes from 640/2 or width of image / 2 )
           error = 320 - x;
@@ -327,6 +345,7 @@ void keyPressed()
 void serialEvent(Serial p) { 
   char inByte = (char) p.read();    
   println("Serial event : " + (char) inByte);
+    performing = false;
 
   currentStateIndex = nextStateIndexFrom(inByte);
 } 
@@ -357,9 +376,9 @@ int nextStateIndexFrom(char current) {
 int prevStateIndexFrom(char current) { 
 
   if (current == FULL_TRACK) {
-    return 1;
+    return 0;
   } else if (current == RELEASE_BALL) {
-    return 1;
+    return 0;
   } else if (current == SWEEP) {
     return 1;
   } else if (current == COLLECT_BALL) {
