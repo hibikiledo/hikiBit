@@ -41,7 +41,7 @@ final int CONTOUR_AREA = 1200;
 
 // Variables for performing inRange(start, end) on the image to find balls
 int startColor1 = 0, endColor1 = 1;
-int startColor2 = 0, endColor2 = 1;
+int startColor2 = 197, endColor2 = 250;
 
 // true : color 1, false : color 2
 boolean colorSwitch = true;
@@ -98,14 +98,14 @@ void setup() {
 
 void draw() 
 {
-  int x = 0, y = 0, size = 0, error = 0, count = 0, speed = 0;
-
-  // reset counter variables
-  ballCountColor1 = 0;
-  ballCountColor2 = 0;
+  int x = 0, y = 0, size = 0, error = 0, count = 0, speed = 0;  
 
   if (cam.isAvailable()) 
   {
+    // reset counter variables
+    ballCountColor1 = 0;
+    ballCountColor2 = 0;
+
     cam.read();    
     opencv.loadImage(cam);
     opencv.useColor(HSB);
@@ -203,6 +203,15 @@ void draw()
           port.write('0'); 
           println("write 0 to port");
           performing = true;
+        } else { // performing        
+          // there is some white ball
+          if (ballCountColor2 > 0) { 
+            port.write('c');
+            println("writing 'c' to port");
+          } else {
+            println("writing 'z' to port");
+            port.write('z');
+          }
         }
       }
 
@@ -222,7 +231,7 @@ void draw()
         }
       }
 
-      /*
+
       if (states[currentStateIndex] == COLLECT_BALL) {
         if (!performing) {          
           performing = true;
@@ -252,7 +261,8 @@ void draw()
             }
           }
         }
-      } */
+      }
+      
     }
 
     delay(1);
@@ -282,7 +292,7 @@ void keyPressed()
 
   /* Handle command differently according to the directCommandSwitch */
   if (directCommandSwitch) { // Command switch enabled, send key directly to arduino
-    println("Sending " + key + " Via direct command channel ");
+    println("Sending " + key + " via direct command channel ");
     port.write(key);
   } else { // Command switch disabled, interpret normally
 
@@ -357,22 +367,21 @@ void keyPressed()
  */
 void serialEvent(Serial p) { 
   char inByte = (char) p.read();    
-  println("Serial event : " + (char) inByte);
-  
-  println("from " + (char)inByte);
-  
+  println("Received from robot : " + (char) inByte);
+
+  //println("from " + (char)inByte);
+
   /* 
    * Peform synchronization
    *  Since serialEvent and draw() process parallely, there exists some cases
    *  that setting performing to 'false' trigger the same state again.
    *  To solve, change stateIndex to one that doesn't match any state before reset performing flag
-   */ 
+   */
   currentStateIndex = 5;
   performing = false;
   currentStateIndex = nextStateIndexFrom(inByte);
-  
-  println("to " + (char) states[currentStateIndex]);
-  
+
+  //println("to " + (char) states[currentStateIndex]);
 } 
 
 /**
