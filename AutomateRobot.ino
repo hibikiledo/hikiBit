@@ -132,74 +132,99 @@ void loop() {
     if (incomingByte == '1') {
       release_ball_task();
     }
+    if (incomingByte == '2') {
+      go_to_base_task();
+    }
   }
 }
 
-/* MANUAL CONTROL */
-void manual() {
-  // if byte is equal to "105" or "i", go forward
-  if (incomingByte == 105) {
+/**
+ * GO TO BASE TASK
+ * The robot walk straight until the OPTO_C picks up the track.
+ * Then, it stops. It perform little sweep to find the track
+ */
+void go_to_base_task() {
+
+  int C;
+  const int MAX_TURN_COUNT = 20;
+
+  // walk straight until find the track
+  while (true) {
     M1_forward(fspeed_val_m1);
     M2_forward(fspeed_val_m2);
+
+    C = digitalRead(OPTO_C);
+    if (C == LOW) {
+      M1_stop();
+      M2_stop();
+      break;
+    }
   }
-  // if byte is equal to "106" or "j", go left
-  else if (incomingByte == 106) {
-    M1_reverse(rspeed_val_m1);
-    M2_forward(fspeed_val_m2);
-  }
-  // if byte is equal to "108" or "l", go right
-  else if (incomingByte == 108) {
-    M1_forward(fspeed_val_m1);
-    M2_reverse(rspeed_val_m2);
-  }
-  // if byte is equal to "107" or "k", go reverse
-  else if (incomingByte == 107) {
-    M1_reverse(rspeed_val_m1);
-    M2_reverse(rspeed_val_m2);
-  }
-  // if byte is equal to "100" or "d", stop
-  else if (incomingByte == 100) {
-    M1_stop();
-    M2_stop();
-  }
-  else if (incomingByte == 'z') {
-    MOB_forward();
-  }
-  else if (incomingByte == 'x') {
-    MOB_reverse();
-  }
-  else if (incomingByte == 'c') {
-    MOB_stop();
-  }
-  else if (incomingByte == '9') { // Turn left (high precision)
-    M1_reverse(rspeed_val_m1);
-    M2_forward(fspeed_val_m2);
+
+  // wait for the robot to be stable
+  delay(300);
+
+  // reverse back a little with a hope that we get on the line
+  M1_reverse(rtrack_speed_m1);
+  M2_reverse(rtrack_speed_m2);
+  delay(200);
+
+  M1_stop();
+  M2_stop();
+  delay(300);
+
+  // sweep with hope to find the line
+  int turn_left_count = 0;
+  int turn_right_count = 0;
+
+  // sweep to the left
+  do {
+    C = digitalRead(OPTO_C);
+    M1_reverse(rtrack_speed_m1);
+    M2_forward(ftrack_speed_m2);
     delay(50);
     M1_stop();
     M2_stop();
+    turn_left_count += 1;
+  } while (C == HIGH && turn_left_count < MAX_TURN_COUNT);
+
+  // we are still NOT on the track
+  if (turn_left_count == MAX_TURN_COUNT) {
+    
+    // rotate back to center
+    for (int i = 0; i < turn_left_count; i++) {
+      M1_forward(ftrack_speed_m1);
+      M2_reverse(rtrack_speed_m2);
+      delay(50);
+      M1_stop();
+      M2_stop();
+    }
+    
+    // sweep to the right
+    do {
+      C = digitalRead(OPTO_C);
+      M1_forward(ftrack_speed_m1);
+      M2_reverse(rtrack_speed_m2);
+      delay(25);
+      M1_stop();
+      M2_stop();
+      turn_right_count += 1;
+    } while (C == HIGH && turn_right_count < MAX_TURN_COUNT);
+
   }
-  else if (incomingByte == '8') { // Turn right (high precision)
-    M1_forward(fspeed_val_m1);
-    M2_reverse(rspeed_val_m2);
-    delay(50);
-    M1_stop();
-    M2_stop();
+
+  // here check again if center is on the track
+  C = digitalRead(OPTO_C);
+  // good! we are on the track. let's go to base
+  if (C == LOW) {
+    track_line_to_base();
   }
-  else if (incomingByte == '7') { // Long forward
-    M1_forward(fspeed_val_m1);
-    M2_forward(fspeed_val_m2);
-    delay(500);
-    M1_stop();
-    M2_stop();
-  }
-  else if (incomingByte == '6') { // Short forward
-    M1_forward(fspeed_val_m1);
-    M2_forward(fspeed_val_m2);
-    delay(100);
-    M1_stop();
-    M2_stop();
-  }
+
+  
+  // Tell processing that go to base task is done :)
+  BTSerial.write((char) '2');
 }
+
 
 /* RELEASE BALL */
 void release_ball_task() {
@@ -247,10 +272,10 @@ void track_line_from_start_to_base_task() {
 
 
 /* SHARED FUNCTIONs ACROSS TASKS */
-void track_line_to_base() {  
+void track_line_to_base() {
 
-  int heading = 0;  
-  int center_loss_count = 0; 
+  int heading = 0;
+  int center_loss_count = 0;
 
   const int MAX_TURN_COUNT = 10;
 
@@ -322,7 +347,7 @@ void track_line_to_base() {
 
         // sweep with hope to find the line
         int turn_left_count = 0;
-        int turn_right_count = 0;        
+        int turn_right_count = 0;
 
         // sweep to the left
         do {
@@ -401,7 +426,71 @@ void track_line_to_base() {
   M2_stop();
 } // end line tracking
 
-
+/* MANUAL CONTROL */
+void manual() {
+  // if byte is equal to "105" or "i", go forward
+  if (incomingByte == 105) {
+    M1_forward(fspeed_val_m1);
+    M2_forward(fspeed_val_m2);
+  }
+  // if byte is equal to "106" or "j", go left
+  else if (incomingByte == 106) {
+    M1_reverse(rspeed_val_m1);
+    M2_forward(fspeed_val_m2);
+  }
+  // if byte is equal to "108" or "l", go right
+  else if (incomingByte == 108) {
+    M1_forward(fspeed_val_m1);
+    M2_reverse(rspeed_val_m2);
+  }
+  // if byte is equal to "107" or "k", go reverse
+  else if (incomingByte == 107) {
+    M1_reverse(rspeed_val_m1);
+    M2_reverse(rspeed_val_m2);
+  }
+  // if byte is equal to "100" or "d", stop
+  else if (incomingByte == 100) {
+    M1_stop();
+    M2_stop();
+  }
+  else if (incomingByte == 'z') {
+    MOB_forward();
+  }
+  else if (incomingByte == 'x') {
+    MOB_reverse();
+  }
+  else if (incomingByte == 'c') {
+    MOB_stop();
+  }
+  else if (incomingByte == '9') { // Turn left (high precision)
+    M1_reverse(rspeed_val_m1);
+    M2_forward(fspeed_val_m2);
+    delay(50);
+    M1_stop();
+    M2_stop();
+  }
+  else if (incomingByte == '8') { // Turn right (high precision)
+    M1_forward(fspeed_val_m1);
+    M2_reverse(rspeed_val_m2);
+    delay(50);
+    M1_stop();
+    M2_stop();
+  }
+  else if (incomingByte == '7') { // Long forward
+    M1_forward(fspeed_val_m1);
+    M2_forward(fspeed_val_m2);
+    delay(500);
+    M1_stop();
+    M2_stop();
+  }
+  else if (incomingByte == '6') { // Short forward
+    M1_forward(fspeed_val_m1);
+    M2_forward(fspeed_val_m2);
+    delay(100);
+    M1_stop();
+    M2_stop();
+  }
+}
 
 /* CONTROLLING MOTORS */
 void M1_reverse(int x) {
