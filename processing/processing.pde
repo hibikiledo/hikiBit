@@ -58,9 +58,10 @@ final Character RELEASE_BALL = '1';
 final Character SWEEP = '2';
 final Character COLLECT_BALL = '3';
 final Character GO_TO_BASE = '4';
+final Character PAUSE = '5';
 
 final char[] states = new char[] {
-  FULL_TRACK, RELEASE_BALL, SWEEP, COLLECT_BALL, GO_TO_BASE
+  FULL_TRACK, RELEASE_BALL, SWEEP, COLLECT_BALL, GO_TO_BASE, PAUSE
 };
 
 int currentStateIndex = 0;
@@ -73,7 +74,7 @@ boolean performing = false;
 
 void setup() {
   size(width, height);
-  cam = new IPCapture(this, "http://192.168.43.1:8080/video", "", ""); // Android's Ipwebcam
+  cam = new IPCapture(this, "http://192.168.1.189:8080/video", "", ""); // Android's Ipwebcam
   //cam = new IPCapture(this, "http://192.168.1.109/live", "", ""); // iOS's iPCamera (Doesn't work yet)
   cam.start();
 
@@ -204,43 +205,55 @@ void draw()
           performing = true;
         }
       }
-      
+
       if (states[currentStateIndex] == RELEASE_BALL) {
-         if (!performing) {
-            port.write('1');
-            println("write 1 to port");
-            performing = true;
-         } 
+        if (!performing) {
+          port.write('1');
+          println("write 1 to port");
+          performing = true;
+        }
       }
 
+      if (states[currentStateIndex] == GO_TO_BASE) {
+        if (!performing) {
+          port.write('2');
+          println("write 2 to port");
+          performing = true;
+        }
+      }
+
+      /*
       if (states[currentStateIndex] == COLLECT_BALL) {
-        /* Collect balls */
-        // I use globalCounter instead of calling to delay() to keep video smooth
-        if ((int) globalCounter % 10 == 0) {          
+        if (!performing) {          
+          performing = true;
+        } else {          
+          // I use globalCounter instead of calling to delay() to keep video smooth
+          if ((int) globalCounter % 10 == 0) {          
 
-          // find error from center ( 320 comes from 640/2 or width of image / 2 )
-          error = 320 - x;
-          println("error : " + error);
+            // find error from center ( 320 comes from 640/2 or width of image / 2 )
+            error = 320 - x;
+            println("error : " + error);
 
-          // Turn the robot according to the error
-          if (error > 80) { // Turn left
-            println("turning left");
-            port.write('9');
-          } else if (error < -80) { // Turn right
-            println("turning right");
-            port.write('8');
-          } else { // Ball is centered
-            if (size > 65) { // Move forward .. catch it!
-              println("Size < 85 .. moving forward");
-              port.write('7');
-            } else { // Move forward to get closer to it
-              println("Almost there .. going closer");
-              port.write('6');
+            // Turn the robot according to the error
+            if (error > 80) { // Turn left
+              println("turning left");
+              port.write('9');
+            } else if (error < -80) { // Turn right
+              println("turning right");
+              port.write('8');
+            } else { // Ball is centered
+              if (size > 65) { // Move forward .. catch it!
+                println("Size < 85 .. moving forward");
+                port.write('7');
+              } else { // Move forward to get closer to it
+                println("Almost there .. going closer");
+                port.write('6');
+              }
             }
           }
         }
-      }
-    }// end Collect balls
+      } */
+    }
 
     delay(1);
 
@@ -345,9 +358,21 @@ void keyPressed()
 void serialEvent(Serial p) { 
   char inByte = (char) p.read();    
   println("Serial event : " + (char) inByte);
-    performing = false;
-
+  
+  println("from " + (char)inByte);
+  
+  /* 
+   * Peform synchronization
+   *  Since serialEvent and draw() process parallely, there exists some cases
+   *  that setting performing to 'false' trigger the same state again.
+   *  To solve, change stateIndex to one that doesn't match any state before reset performing flag
+   */ 
+  currentStateIndex = 5;
+  performing = false;
   currentStateIndex = nextStateIndexFrom(inByte);
+  
+  println("to " + (char) states[currentStateIndex]);
+  
 } 
 
 /**
