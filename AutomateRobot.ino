@@ -190,7 +190,7 @@ void go_to_base_task() {
 
   // we are still NOT on the track
   if (turn_left_count == MAX_TURN_COUNT) {
-    
+
     // rotate back to center
     for (int i = 0; i < turn_left_count; i++) {
       M1_forward(ftrack_speed_m1);
@@ -199,7 +199,7 @@ void go_to_base_task() {
       M1_stop();
       M2_stop();
     }
-    
+
     // sweep to the right
     do {
       C = digitalRead(OPTO_C);
@@ -220,7 +220,7 @@ void go_to_base_task() {
     track_line_to_base();
   }
 
-  
+
   // Tell processing that go to base task is done :)
   BTSerial.write((char) '4');
 }
@@ -284,6 +284,17 @@ void track_line_to_base() {
     int L = digitalRead(OPTO_L);
     int R = digitalRead(OPTO_R);
     int C = digitalRead(OPTO_C);
+
+    // process MOB command (on/off) from processing
+
+    if (BTSerial.available()) {
+      char command = BTSerial.read();
+      if (command == 'c') {
+        MOB_stop();
+      } else if (command == 'z') {
+        MOB_forward();
+      }
+    }
 
     if (L == LOW && C == LOW && R == LOW) {
       heading = CENTER;
@@ -365,19 +376,14 @@ void track_line_to_base() {
           continue;
         }
 
-        // rotate back to center
+        // no track found, rotate back to center first
         for (int i = 0; i < turn_left_count; i++) {
           M1_forward(ftrack_speed_m1);
           M2_reverse(rtrack_speed_m2);
           delay(50);
           M1_stop();
           M2_stop();
-        }
-
-        // we are probably at base
-        if (turn_left_count == MAX_TURN_COUNT) {
-          break;
-        }
+        }        
 
         // sweep to the right
         do {
@@ -390,6 +396,7 @@ void track_line_to_base() {
           turn_right_count += 1;
         } while (C == HIGH && turn_right_count < MAX_TURN_COUNT);
 
+        // we are back on track
         if (turn_right_count != MAX_TURN_COUNT) {
           continue;
         }
@@ -416,7 +423,10 @@ void track_line_to_base() {
 
     // check if any command has been sent, if so, leave line tracking mode
     if (BTSerial.available()) {
-      break;
+      char command = BTSerial.read();
+      if (command == 'd') {
+        break;
+      }
     }
 
   } // end of track
