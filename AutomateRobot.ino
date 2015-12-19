@@ -55,7 +55,8 @@ SoftwareSerial BTSerial(12, 13); // RX, TX
 #define MAX_DISTANCE  100 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
 // Define delay for motion in reverse direction for fast stop implementation
-#define FAST_STOP_DELAY 10
+#define FAST_STOP_DELAY_M1 30
+#define FAST_STOP_DELAY_M2 10
 
 // variable to store serial data
 int incomingByte = 0;
@@ -65,11 +66,16 @@ int M1_state = NONE;
 int M2_state = NONE;
 
 // [CONFIG] variable to store speed value for MANUAL control
-#define speed_val_left  200
-#define speed_val_right 200
+#define fspeed_val_m1  120
+#define fspeed_val_m2  170
+#define rspeed_val_m1  110
+#define rspeed_val_m2  130
 
 // [CONFIG] variable to setup the speed for tracking
-#define track_speed  150
+#define ftrack_speed_m1   120
+#define ftrack_speed_m2   170
+#define rtrack_speed_m1   110
+#define rtrack_speed_m2   130
 
 int n = 0;
 
@@ -133,23 +139,23 @@ void loop() {
 void manual() {
   // if byte is equal to "105" or "i", go forward
   if (incomingByte == 105) {
-    M1_forward(speed_val_left);
-    M2_forward(speed_val_right);
+    M1_forward(fspeed_val_m1);
+    M2_forward(fspeed_val_m2);
   }
   // if byte is equal to "106" or "j", go left
   else if (incomingByte == 106) {
-    M1_reverse(speed_val_left);
-    M2_forward(speed_val_right);
+    M1_reverse(rspeed_val_m1);
+    M2_forward(fspeed_val_m2);
   }
   // if byte is equal to "108" or "l", go right
   else if (incomingByte == 108) {
-    M1_forward(speed_val_left);
-    M2_reverse(speed_val_right);
+    M1_forward(fspeed_val_m1);
+    M2_reverse(rspeed_val_m2);
   }
   // if byte is equal to "107" or "k", go reverse
   else if (incomingByte == 107) {
-    M1_reverse(speed_val_left);
-    M2_reverse(speed_val_right);
+    M1_reverse(rspeed_val_m1);
+    M2_reverse(rspeed_val_m2);
   }
   // if byte is equal to "100" or "d", stop
   else if (incomingByte == 100) {
@@ -166,29 +172,29 @@ void manual() {
     MOB_stop();
   }
   else if (incomingByte == '9') { // Turn left (high precision)
-    M1_reverse(speed_val_left);
-    M2_forward(speed_val_right);
+    M1_reverse(rspeed_val_m1);
+    M2_forward(fspeed_val_m2);
     delay(50);
     M1_stop();
     M2_stop();
   }
   else if (incomingByte == '8') { // Turn right (high precision)
-    M1_forward(speed_val_left);
-    M2_reverse(speed_val_right);
+    M1_forward(fspeed_val_m1);
+    M2_reverse(rspeed_val_m2);
     delay(50);
     M1_stop();
     M2_stop();
   }
   else if (incomingByte == '7') { // Long forward
-    M1_forward(speed_val_left);
-    M2_forward(speed_val_right);
+    M1_forward(fspeed_val_m1);
+    M2_forward(fspeed_val_m2);
     delay(500);
     M1_stop();
     M2_stop();
   }
   else if (incomingByte == '6') { // Short forward
-    M1_forward(speed_val_left);
-    M2_forward(speed_val_right);
+    M1_forward(fspeed_val_m1);
+    M2_forward(fspeed_val_m2);
     delay(100);
     M1_stop();
     M2_stop();
@@ -198,8 +204,8 @@ void manual() {
 /* RELEASE BALL */
 void release_ball_task() {
 
-  M1_forward(speed_val_left);
-  M2_forward(speed_val_right);
+  M1_forward(fspeed_val_m1);
+  M2_forward(fspeed_val_m2);
   delay(100);
   M1_stop();
   M2_stop();
@@ -256,46 +262,46 @@ void track_line_to_base() {
 
     if (L == LOW && C == LOW && R == LOW) {
       heading = CENTER;
-      M1_forward(track_speed - 50 - 10);
-      M2_forward(track_speed + 20 - 10);
+      M1_forward(ftrack_speed_m1);
+      M2_forward(rtrack_speed_m2);
     }
     else if (L == LOW && C == LOW && R == HIGH) {
       heading = LEFT;
-      M1_reverse(track_speed - 50);
-      M2_forward(track_speed - 50);
+      M1_reverse(rtrack_speed_m1);
+      M2_forward(ftrack_speed_m2);
     }
     else if (L == LOW && C == HIGH && R == LOW) { // todo
 
     }
     else if (L == LOW && C == HIGH && R == HIGH) {
       heading = LEFT;
-      M1_reverse(track_speed);
-      M2_forward(track_speed);
+      M1_reverse(rtrack_speed_m1);
+      M2_forward(ftrack_speed_m2);
     }
     else if (L == HIGH && C == LOW && R == LOW) {
       heading = RIGHT;
-      M1_forward(track_speed - 50);
-      M2_reverse(track_speed - 50);
+      M1_forward(ftrack_speed_m1);
+      M2_reverse(rtrack_speed_m2);
     }
     else if (L == HIGH && C == LOW && R == HIGH) {
       heading = CENTER;
-      M1_forward(track_speed);
-      M2_forward(track_speed);
+      M1_forward(ftrack_speed_m1);
+      M2_forward(ftrack_speed_m2);
     }
     else if (L == HIGH && C == HIGH && R == LOW) {
       heading = RIGHT;
-      M1_forward(track_speed);
-      M2_reverse(track_speed);
+      M1_forward(ftrack_speed_m1);
+      M2_reverse(ftrack_speed_m2);
     }
     else if (L == HIGH && C == HIGH && R == HIGH) {
       //BTSerial.println("LOSS");
       if (heading == LEFT) {
-        M1_reverse(track_speed);
-        M2_forward(track_speed);
+        M1_reverse(rtrack_speed_m1);
+        M2_forward(ftrack_speed_m2);
       }
       else if (heading == RIGHT) {
-        M1_forward(track_speed);
-        M2_reverse(track_speed);
+        M1_forward(ftrack_speed_m1);
+        M2_reverse(rtrack_speed_m2);
       }
       else if (heading == CENTER) {
         center_loss_count += 1;
@@ -306,8 +312,8 @@ void track_line_to_base() {
         delay(700);
 
         // reverse back a little with a hope that we get on the line
-        M1_reverse(track_speed);
-        M2_reverse(track_speed);
+        M1_reverse(rtrack_speed_m1);
+        M2_reverse(rtrack_speed_m2);
         delay(100);
 
         M1_stop();
@@ -321,8 +327,8 @@ void track_line_to_base() {
         // sweep to the left
         do {
           C = digitalRead(OPTO_C);
-          M1_reverse(track_speed);
-          M2_forward(track_speed);
+          M1_reverse(rtrack_speed_m1);
+          M2_forward(ftrack_speed_m2);
           delay(50);
           M1_stop();
           M2_stop();
@@ -336,8 +342,8 @@ void track_line_to_base() {
 
         // rotate back to center
         for (int i = 0; i < turn_left_count; i++) {
-          M1_forward(track_speed);
-          M2_reverse(track_speed);
+          M1_forward(ftrack_speed_m1);
+          M2_reverse(rtrack_speed_m2);
           delay(50);
           M1_stop();
           M2_stop();
@@ -351,8 +357,8 @@ void track_line_to_base() {
         // sweep to the right
         do {
           C = digitalRead(OPTO_C);
-          M1_forward(track_speed);
-          M2_reverse(track_speed);
+          M1_forward(ftrack_speed_m1);
+          M2_reverse(rtrack_speed_m2);
           delay(25);
           M1_stop();
           M2_stop();
@@ -365,8 +371,8 @@ void track_line_to_base() {
 
         // rotate back to center
         for (int i = 0; i < turn_right_count; i++) {
-          M1_reverse(track_speed);
-          M2_forward(track_speed);
+          M1_reverse(rtrack_speed_m1);
+          M2_forward(ftrack_speed_m2);
           delay(25);
           M1_stop();
           M2_stop();
@@ -414,11 +420,11 @@ void M1_forward(int x) {
 
 void M1_stop() {
   if (M1_state == FORWARD) {
-    M1_reverse(speed_val_left);
+    M1_reverse(fspeed_val_m1);
   } else if (M1_state == REVERSE) {
-    M1_forward(speed_val_left);
+    M1_forward(fspeed_val_m1);
   }
-  delay(FAST_STOP_DELAY);
+  delay(FAST_STOP_DELAY_M1);
   digitalWrite(M1_B, LOW);
   digitalWrite(M1_A, LOW);
   digitalWrite(M1_PWM, LOW);
@@ -441,11 +447,11 @@ void M2_reverse(int y) {
 
 void M2_stop() {
   if (M2_state == FORWARD) {
-    M2_reverse(speed_val_right);
+    M2_reverse(fspeed_val_m2);
   } else if (M2_state == REVERSE) {
-    M2_forward(speed_val_right);
+    M2_forward(fspeed_val_m2);
   }
-  delay(FAST_STOP_DELAY);
+  delay(FAST_STOP_DELAY_M2);
   digitalWrite(M2_B, LOW);
   digitalWrite(M2_A, LOW);
   digitalWrite(M2_PWM, LOW);
@@ -462,7 +468,7 @@ void MOB_forward() {
 void MOB_reverse() {
   digitalWrite(MOB_A, HIGH);
   digitalWrite(MOB_B, LOW);
-  analogWrite(MOB_PWM, 100);
+  analogWrite(MOB_PWM, 200);
 }
 
 void MOB_stop() {
