@@ -222,7 +222,7 @@ void go_to_base_task() {
 
   
   // Tell processing that go to base task is done :)
-  BTSerial.write((char) '2');
+  BTSerial.write((char) '4');
 }
 
 
