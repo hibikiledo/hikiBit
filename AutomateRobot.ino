@@ -66,7 +66,7 @@ int M1_state = NONE;
 int M2_state = NONE;
 
 // [CONFIG] variable to store speed value for MANUAL control
-#define fspeed_val_m1  120
+#define fspeed_val_m1  150
 #define fspeed_val_m2  170
 #define rspeed_val_m1  110
 #define rspeed_val_m2  130
@@ -146,7 +146,7 @@ void loop() {
 void go_to_base_task() {
 
   int C;
-  const int MAX_TURN_COUNT = 20;
+  const int MAX_TURN_COUNT = 20;  
 
   // walk straight until find the track
   while (true) {
@@ -359,7 +359,7 @@ void track_line_to_base() {
         // sweep with hope to find the line
         int turn_left_count = 0;
         int turn_right_count = 0;
-
+        
         // sweep to the left
         do {
           C = digitalRead(OPTO_C);
@@ -375,7 +375,7 @@ void track_line_to_base() {
         if (turn_left_count != MAX_TURN_COUNT) {
           continue;
         }
-
+        
         // no track found, rotate back to center first
         for (int i = 0; i < turn_left_count; i++) {
           M1_forward(ftrack_speed_m1);
@@ -384,13 +384,13 @@ void track_line_to_base() {
           M1_stop();
           M2_stop();
         }        
-
+        
         // sweep to the right
         do {
           C = digitalRead(OPTO_C);
           M1_forward(ftrack_speed_m1);
           M2_reverse(rtrack_speed_m2);
-          delay(25);
+          delay(50);
           M1_stop();
           M2_stop();
           turn_right_count += 1;
@@ -400,12 +400,12 @@ void track_line_to_base() {
         if (turn_right_count != MAX_TURN_COUNT) {
           continue;
         }
-
+        
         // rotate back to center
         for (int i = 0; i < turn_right_count; i++) {
           M1_reverse(rtrack_speed_m1);
           M2_forward(ftrack_speed_m2);
-          delay(25);
+          delay(50);
           M1_stop();
           M2_stop();
         }
@@ -475,14 +475,14 @@ void manual() {
   else if (incomingByte == '9') { // Turn left (high precision)
     M1_reverse(rspeed_val_m1);
     M2_forward(fspeed_val_m2);
-    delay(50);
+    delay(100);
     M1_stop();
     M2_stop();
   }
   else if (incomingByte == '8') { // Turn right (high precision)
     M1_forward(fspeed_val_m1);
     M2_reverse(rspeed_val_m2);
-    delay(50);
+    delay(100);
     M1_stop();
     M2_stop();
   }
@@ -496,7 +496,7 @@ void manual() {
   else if (incomingByte == '6') { // Short forward
     M1_forward(fspeed_val_m1);
     M2_forward(fspeed_val_m2);
-    delay(100);
+    delay(150);
     M1_stop();
     M2_stop();
   }
