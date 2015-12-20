@@ -235,6 +235,8 @@ void draw()
       if (states[currentStateIndex] == COLLECT_BALL) {
         if (!performing) {          
           performing = true;
+          // turn on the MOD
+          port.write('z');
         } else {          
           // I use globalCounter instead of calling to delay() to keep video smooth
           if ((int) globalCounter % 10 == 0) {          
