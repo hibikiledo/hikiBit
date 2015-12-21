@@ -67,14 +67,14 @@ int M2_state = NONE;
 
 // [CONFIG] variable to store speed value for MANUAL control
 #define fspeed_val_m1  150
-#define fspeed_val_m2  170
-#define rspeed_val_m1  110
+#define fspeed_val_m2  200
+#define rspeed_val_m1  130
 #define rspeed_val_m2  130
 
 // [CONFIG] variable to setup the speed for tracking
-#define ftrack_speed_m1   120
-#define ftrack_speed_m2   170
-#define rtrack_speed_m1   110
+#define ftrack_speed_m1   150
+#define ftrack_speed_m2   200
+#define rtrack_speed_m1   130
 #define rtrack_speed_m2   130
 
 int n = 0;
@@ -147,6 +147,9 @@ void go_to_base_task() {
 
   int C;
   const int MAX_TURN_COUNT = 20;  
+
+  // turn on the mob first
+  MOB_forward();  
 
   // walk straight until find the track
   while (true) {
@@ -230,8 +233,8 @@ void go_to_base_task() {
 void release_ball_task() {
 
   M1_forward(fspeed_val_m1);
-  M2_forward(fspeed_val_m2);
-  delay(100);
+  M2_reverse(fspeed_val_m2);
+  delay(200);
   M1_stop();
   M2_stop();
 
@@ -380,7 +383,7 @@ void track_line_to_base() {
         for (int i = 0; i < turn_left_count; i++) {
           M1_forward(ftrack_speed_m1);
           M2_reverse(rtrack_speed_m2);
-          delay(50);
+          delay(60);
           M1_stop();
           M2_stop();
         }        
@@ -494,9 +497,9 @@ void manual() {
     M2_stop();
   }
   else if (incomingByte == '6') { // Short forward
-    M1_forward(fspeed_val_m1);
+    M1_forward(fspeed_val_m1 + 80);
     M2_forward(fspeed_val_m2);
-    delay(150);
+    delay(100);
     M1_stop();
     M2_stop();
   }
