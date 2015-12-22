@@ -25,9 +25,9 @@ Here are the keys registered with processing program.
 - `]` : increase upper threshold value
 - `[` : decrease upper threshold value
 - `p` : increase lower threshold value
-- ``o : decrease lower threshold value
+- `o` : decrease lower threshold value
 
-**Key for switching between the 2 colors**
+**Key for switching between the 2 colors**  
 There are 2 colors that the program can detects.  
 Color1 uses hue with thresholding for detecting yellow ball.  
 Color2 use grayscale for detecting white ball.
